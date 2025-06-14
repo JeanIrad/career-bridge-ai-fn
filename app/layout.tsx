@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { ReactQueryProvider } from "@/providers/react-query";
+import { Toaster } from "@/components/ui/sonner";
+// import { Toaster } from "sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,7 +17,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Career Bridge AI - Connect. Learn. Grow.",
-  description: "Bridging the gap between students, alumni, and employers through AI-powered career opportunities",
+  description:
+    "Bridging the gap between students, alumni, and employers through AI-powered career opportunities",
 };
 
 export default function RootLayout({
@@ -27,7 +31,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <ReactQueryProvider>
+          <Toaster />
+          {children}
+        </ReactQueryProvider>
       </body>
     </html>
   );

@@ -10,11 +10,23 @@ export function AuthContainer() {
   const toggleMode = () => {
     setIsLogin(!isLogin);
   };
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("careerBridgeAIToken");
+    // check if user is already logged in
+    // If token exists, redirect to dashboard
+
+    if (token) {
+      window.location.href = "/dashboard";
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-50 flex flex-col space-y-4 items-center justify-center p-4">
+      <h1 className="text-lg md:text-2xl lg:text-3xl mb-6 font-bold text-gray-800 text-center">
+        Welcome to CareerBridgeAi Platform
+      </h1>
       <div className="w-full max-w-md">
-        <div className="transition-all duration-500 ease-in-out">
+        <div className="transition-all duration-1000 ease-in-out">
           {isLogin ? (
             <LoginForm onToggleMode={toggleMode} />
           ) : (
@@ -22,7 +34,7 @@ export function AuthContainer() {
           )}
         </div>
       </div>
-      
+
       {/* Background decoration */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-100 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse"></div>
