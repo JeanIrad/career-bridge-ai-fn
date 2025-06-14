@@ -1,9 +1,9 @@
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout";
-
+import { AuthProvider } from "@/contexts/auth-context";
 export default function DashLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <DashboardLayout />;
+  return <AuthProvider>{children}</AuthProvider>;
 }
