@@ -34,14 +34,14 @@ export function RoleSwitcher() {
   if (!user) return null;
 
   const currentRole = roleConfig[user.role];
-  const CurrentIcon = currentRole.icon;
+  const CurrentIcon = currentRole?.icon;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" className="gap-2">
-          <CurrentIcon className="h-4 w-4" />
-          <Badge className={currentRole.color}>{currentRole.label}</Badge>
+          {/* <CurrentIcon className="h-4 w-4" /> */}
+          <Badge className={currentRole?.color}>{currentRole?.label}</Badge>
           <ChevronDown className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
