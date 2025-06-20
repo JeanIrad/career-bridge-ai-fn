@@ -1,5 +1,6 @@
 "use client";
 
+import { UniversityDashboardGuard } from "@/components/auth/RoleBasedAccess";
 import { TabbedDashboardLayout } from "@/components/layout/tabbed-dashboard-layout";
 import { UniversityOverview } from "@/components/university/university-overview";
 import { UniversityStudents } from "@/components/university/university-students";
@@ -84,11 +85,13 @@ export default function UniversityDashboard() {
   ];
 
   return (
-    <TabbedDashboardLayout
-      tabs={tabs}
-      userRole="University Staff"
-      userName="Dr. Maria Rodriguez"
-      defaultTab="overview"
-    />
+    <UniversityDashboardGuard>
+      <TabbedDashboardLayout
+        tabs={tabs}
+        userRole="University Staff"
+        userName="Dr. Maria Rodriguez"
+        defaultTab="overview"
+      />
+    </UniversityDashboardGuard>
   );
 }

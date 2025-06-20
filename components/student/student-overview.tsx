@@ -135,7 +135,7 @@ export function StudentOverview() {
   return (
     <div className="space-y-8">
       {/* Welcome Section */}
-      <div className="relative overflow-hidden rounded-2xl gradient-bg p-8 text-white">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-600 to-blue-600 p-8 text-white">
         <div className="relative z-10">
           <h1 className="text-3xl font-bold mb-2">Welcome back, Alex! 🎯</h1>
           <p className="text-lg opacity-90 mb-6">
@@ -161,118 +161,6 @@ export function StudentOverview() {
           <div className="h-full w-full bg-gradient-to-l from-white/20 to-transparent"></div>
         </div>
       </div>
-
-      {/* Role-Based Access Control Demo */}
-      <Card className="border-2 border-dashed border-blue-200 bg-blue-50/50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="w-5 h-5 text-blue-600" />
-            Role-Based Access Control Demo
-          </CardTitle>
-          <CardDescription>
-            This section demonstrates the access control system. Different
-            content is shown based on your role.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-3">
-              <h4 className="font-medium text-green-700">
-                ✅ You can see (Student/Alumni):
-              </h4>
-              <ul className="text-sm space-y-1 text-green-600">
-                <li>• Student dashboard and features</li>
-                <li>• Job search and applications</li>
-                <li>• Learning resources</li>
-                <li>• Career development tools</li>
-              </ul>
-            </div>
-
-            <div className="space-y-3">
-              <h4 className="font-medium text-red-700">
-                ❌ You cannot access:
-              </h4>
-              <div className="space-y-2 text-sm">
-                <AdminOnly
-                  fallback={
-                    <div className="flex items-center gap-2 text-red-600">
-                      <AlertTriangle className="w-4 h-4" />
-                      <span>Admin Dashboard (Admin/Super Admin only)</span>
-                    </div>
-                  }
-                >
-                  <div className="text-green-600">
-                    ✅ Admin Dashboard (You have access!)
-                  </div>
-                </AdminOnly>
-
-                <EmployerOnly
-                  fallback={
-                    <div className="flex items-center gap-2 text-red-600">
-                      <AlertTriangle className="w-4 h-4" />
-                      <span>Employer Dashboard (Employer only)</span>
-                    </div>
-                  }
-                >
-                  <div className="text-green-600">
-                    ✅ Employer Dashboard (You have access!)
-                  </div>
-                </EmployerOnly>
-
-                <UniversityOnly
-                  fallback={
-                    <div className="flex items-center gap-2 text-red-600">
-                      <AlertTriangle className="w-4 h-4" />
-                      <span>University Dashboard (Professor/Staff only)</span>
-                    </div>
-                  }
-                >
-                  <div className="text-green-600">
-                    ✅ University Dashboard (You have access!)
-                  </div>
-                </UniversityOnly>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t pt-4">
-            <h4 className="font-medium mb-2">Test Access Control:</h4>
-            <div className="flex flex-wrap gap-2">
-              <Link href="/dashboard/admin">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-red-600 border-red-200 hover:bg-red-50"
-                >
-                  Try Admin Dashboard
-                </Button>
-              </Link>
-              <Link href="/dashboard/employer">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-red-600 border-red-200 hover:bg-red-50"
-                >
-                  Try Employer Dashboard
-                </Button>
-              </Link>
-              <Link href="/dashboard/university">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-red-600 border-red-200 hover:bg-red-50"
-                >
-                  Try University Dashboard
-                </Button>
-              </Link>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Clicking these buttons will redirect you to the unauthorized page
-              since you don't have the required role.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

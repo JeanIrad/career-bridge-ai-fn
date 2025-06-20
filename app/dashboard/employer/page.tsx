@@ -1,5 +1,6 @@
 "use client";
 
+import { EmployerDashboardGuard } from "@/components/auth/RoleBasedAccess";
 import { TabbedDashboardLayout } from "@/components/layout/tabbed-dashboard-layout";
 import { EmployerOverview } from "@/components/employer/employer-overview";
 import { EmployerJobs } from "@/components/employer/employer-jobs";
@@ -76,11 +77,13 @@ export default function EmployerDashboard() {
   ];
 
   return (
-    <TabbedDashboardLayout
-      tabs={tabs}
-      userRole="Employer"
-      userName="Jennifer Smith"
-      defaultTab="overview"
-    />
+    <EmployerDashboardGuard>
+      <TabbedDashboardLayout
+        tabs={tabs}
+        userRole="Employer"
+        userName="Jennifer Smith"
+        defaultTab="overview"
+      />
+    </EmployerDashboardGuard>
   );
 }

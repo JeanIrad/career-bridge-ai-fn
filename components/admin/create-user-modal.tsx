@@ -33,6 +33,7 @@ import {
   Globe,
   Users,
   X,
+  Shield,
 } from "lucide-react";
 import { toast } from "sonner";
 // import { useToast } from "@/hooks/use-toast";
@@ -44,10 +45,12 @@ interface CreateUserModalProps {
 export function CreateUserModal({ trigger }: CreateUserModalProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [userType, setUserType] = useState<"employer" | "university" | "">("");
+  const [userType, setUserType] = useState<
+    "employer" | "university" | "admin" | ""
+  >("");
   const [skills, setSkills] = useState<string[]>([]);
   const [currentSkill, setCurrentSkill] = useState("");
-  //   const { toast } = useToast();
+  // const { toast } = useToast();
 
   const [formData, setFormData] = useState({
     // Basic Information
@@ -82,6 +85,10 @@ export function CreateUserModal({ trigger }: CreateUserModalProps) {
     companyType: "",
     foundedYear: "",
     specializations: [] as string[],
+
+    // Admin Specific
+    adminLevel: "",
+    permissions: [] as string[],
   });
 
   const handleInputChange = (
@@ -144,6 +151,8 @@ export function CreateUserModal({ trigger }: CreateUserModalProps) {
         companyType: "",
         foundedYear: "",
         specializations: [],
+        adminLevel: "",
+        permissions: [],
       });
       setSkills([]);
       setUserType("");
@@ -172,8 +181,8 @@ export function CreateUserModal({ trigger }: CreateUserModalProps) {
             Create New User Account
           </DialogTitle>
           <DialogDescription>
-            Create employer or university staff accounts. Students can register
-            themselves through the public registration.
+            Create accounts for employers, university staff, or administrators.
+            Students can register themselves through the public registration.
           </DialogDescription>
         </DialogHeader>
 
@@ -181,7 +190,7 @@ export function CreateUserModal({ trigger }: CreateUserModalProps) {
           {/* User Type Selection */}
           <div className="space-y-3">
             <Label className="text-base font-semibold">Account Type *</Label>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div
                 className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
                   userType === "employer"
@@ -214,6 +223,24 @@ export function CreateUserModal({ trigger }: CreateUserModalProps) {
                     <h3 className="font-semibold">University Staff</h3>
                     <p className="text-sm text-muted-foreground">
                       For university administrators and career services
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div
+                className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                  userType === "admin"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50"
+                }`}
+                onClick={() => setUserType("admin")}
+              >
+                <div className="flex items-center gap-3">
+                  <Shield className="w-6 h-6 text-primary" />
+                  <div>
+                    <h3 className="font-semibold">Administrator</h3>
+                    <p className="text-sm text-muted-foreground">
+                      For system administrators and platform managers
                     </p>
                   </div>
                 </div>
@@ -290,162 +317,296 @@ export function CreateUserModal({ trigger }: CreateUserModalProps) {
                 </div>
               </div>
 
-              {/* Organization Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">
-                  {userType === "employer" ? "Company" : "University"}{" "}
-                  Information
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
+              {/* Organization Information (for employer and university) */}
+              {(userType === "employer" || userType === "university") && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold border-b pb-2">
+                    {userType === "employer" ? "Company" : "University"}{" "}
+                    Information
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="organizationName">
+                        {userType === "employer" ? "Company" : "University"}{" "}
+                        Name *
+                      </Label>
+                      <Input
+                        id="organizationName"
+                        value={formData.organizationName}
+                        onChange={(e) =>
+                          handleInputChange("organizationName", e.target.value)
+                        }
+                        placeholder={`Enter ${userType === "employer" ? "company" : "university"} name`}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="organizationWebsite">Website</Label>
+                      <div className="relative">
+                        <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="organizationWebsite"
+                          value={formData.organizationWebsite}
+                          onChange={(e) =>
+                            handleInputChange(
+                              "organizationWebsite",
+                              e.target.value
+                            )
+                          }
+                          placeholder="https://example.com"
+                          className="pl-10"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {userType === "employer" && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="industry">Industry *</Label>
+                        <Select
+                          onValueChange={(value) =>
+                            handleInputChange("industry", value)
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select industry" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="technology">
+                              Technology
+                            </SelectItem>
+                            <SelectItem value="finance">Finance</SelectItem>
+                            <SelectItem value="healthcare">
+                              Healthcare
+                            </SelectItem>
+                            <SelectItem value="education">Education</SelectItem>
+                            <SelectItem value="manufacturing">
+                              Manufacturing
+                            </SelectItem>
+                            <SelectItem value="retail">Retail</SelectItem>
+                            <SelectItem value="consulting">
+                              Consulting
+                            </SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="companyType">Company Type</Label>
+                        <Select
+                          onValueChange={(value) =>
+                            handleInputChange("companyType", value)
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select company type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="startup">Startup</SelectItem>
+                            <SelectItem value="small">
+                              Small Business
+                            </SelectItem>
+                            <SelectItem value="medium">
+                              Medium Enterprise
+                            </SelectItem>
+                            <SelectItem value="large">
+                              Large Corporation
+                            </SelectItem>
+                            <SelectItem value="nonprofit">
+                              Non-profit
+                            </SelectItem>
+                            <SelectItem value="government">
+                              Government
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
+
+                  {userType === "university" && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="universityType">University Type</Label>
+                        <Select
+                          onValueChange={(value) =>
+                            handleInputChange("universityType", value)
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select university type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="public">
+                              Public University
+                            </SelectItem>
+                            <SelectItem value="private">
+                              Private University
+                            </SelectItem>
+                            <SelectItem value="community">
+                              Community College
+                            </SelectItem>
+                            <SelectItem value="technical">
+                              Technical Institute
+                            </SelectItem>
+                            <SelectItem value="research">
+                              Research University
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="accreditation">Accreditation</Label>
+                        <Input
+                          id="accreditation"
+                          value={formData.accreditation}
+                          onChange={(e) =>
+                            handleInputChange("accreditation", e.target.value)
+                          }
+                          placeholder="e.g., AACSB, ABET"
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
-                    <Label htmlFor="organizationName">
-                      {userType === "employer" ? "Company" : "University"} Name
-                      *
-                    </Label>
-                    <Input
-                      id="organizationName"
-                      value={formData.organizationName}
+                    <Label htmlFor="organizationDescription">Description</Label>
+                    <Textarea
+                      id="organizationDescription"
+                      value={formData.organizationDescription}
                       onChange={(e) =>
-                        handleInputChange("organizationName", e.target.value)
+                        handleInputChange(
+                          "organizationDescription",
+                          e.target.value
+                        )
                       }
-                      placeholder={`Enter ${userType === "employer" ? "company" : "university"} name`}
-                      required
+                      placeholder={`Brief description of the ${userType === "employer" ? "company" : "university"}`}
+                      rows={3}
                     />
                   </div>
+                </div>
+              )}
+
+              {/* Admin Information */}
+              {userType === "admin" && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold border-b pb-2">
+                    Administrator Information
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="adminLevel">Admin Level *</Label>
+                      <Select
+                        onValueChange={(value) =>
+                          handleInputChange("adminLevel", value)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select admin level" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="super">
+                            Super Administrator
+                          </SelectItem>
+                          <SelectItem value="system">
+                            System Administrator
+                          </SelectItem>
+                          <SelectItem value="content">
+                            Content Moderator
+                          </SelectItem>
+                          <SelectItem value="support">
+                            Support Administrator
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="department">Department</Label>
+                      <Input
+                        id="department"
+                        value={formData.department}
+                        onChange={(e) =>
+                          handleInputChange("department", e.target.value)
+                        }
+                        placeholder="e.g., IT, Operations, Support"
+                      />
+                    </div>
+                  </div>
                   <div className="space-y-2">
-                    <Label htmlFor="organizationWebsite">Website</Label>
-                    <div className="relative">
-                      <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="organizationWebsite"
-                        value={formData.organizationWebsite}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "organizationWebsite",
-                            e.target.value
-                          )
-                        }
-                        placeholder="https://example.com"
-                        className="pl-10"
-                      />
+                    <Label>Admin Permissions</Label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="user-management"
+                            className="rounded"
+                          />
+                          <Label htmlFor="user-management" className="text-sm">
+                            User Management
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="content-moderation"
+                            className="rounded"
+                          />
+                          <Label
+                            htmlFor="content-moderation"
+                            className="text-sm"
+                          >
+                            Content Moderation
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="system-settings"
+                            className="rounded"
+                          />
+                          <Label htmlFor="system-settings" className="text-sm">
+                            System Settings
+                          </Label>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="analytics"
+                            className="rounded"
+                          />
+                          <Label htmlFor="analytics" className="text-sm">
+                            Analytics & Reports
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="security"
+                            className="rounded"
+                          />
+                          <Label htmlFor="security" className="text-sm">
+                            Security Management
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="data-management"
+                            className="rounded"
+                          />
+                          <Label htmlFor="data-management" className="text-sm">
+                            Data Management
+                          </Label>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-
-                {userType === "employer" && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="industry">Industry *</Label>
-                      <Select
-                        onValueChange={(value) =>
-                          handleInputChange("industry", value)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select industry" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="technology">Technology</SelectItem>
-                          <SelectItem value="finance">Finance</SelectItem>
-                          <SelectItem value="healthcare">Healthcare</SelectItem>
-                          <SelectItem value="education">Education</SelectItem>
-                          <SelectItem value="manufacturing">
-                            Manufacturing
-                          </SelectItem>
-                          <SelectItem value="retail">Retail</SelectItem>
-                          <SelectItem value="consulting">Consulting</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="companyType">Company Type</Label>
-                      <Select
-                        onValueChange={(value) =>
-                          handleInputChange("companyType", value)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select company type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="startup">Startup</SelectItem>
-                          <SelectItem value="small">Small Business</SelectItem>
-                          <SelectItem value="medium">
-                            Medium Enterprise
-                          </SelectItem>
-                          <SelectItem value="large">
-                            Large Corporation
-                          </SelectItem>
-                          <SelectItem value="nonprofit">Non-profit</SelectItem>
-                          <SelectItem value="government">Government</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                )}
-
-                {userType === "university" && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="universityType">University Type</Label>
-                      <Select
-                        onValueChange={(value) =>
-                          handleInputChange("universityType", value)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select university type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="public">
-                            Public University
-                          </SelectItem>
-                          <SelectItem value="private">
-                            Private University
-                          </SelectItem>
-                          <SelectItem value="community">
-                            Community College
-                          </SelectItem>
-                          <SelectItem value="technical">
-                            Technical Institute
-                          </SelectItem>
-                          <SelectItem value="research">
-                            Research University
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="accreditation">Accreditation</Label>
-                      <Input
-                        id="accreditation"
-                        value={formData.accreditation}
-                        onChange={(e) =>
-                          handleInputChange("accreditation", e.target.value)
-                        }
-                        placeholder="e.g., AACSB, ABET"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="organizationDescription">Description</Label>
-                  <Textarea
-                    id="organizationDescription"
-                    value={formData.organizationDescription}
-                    onChange={(e) =>
-                      handleInputChange(
-                        "organizationDescription",
-                        e.target.value
-                      )
-                    }
-                    placeholder={`Brief description of the ${userType === "employer" ? "company" : "university"}`}
-                    rows={3}
-                  />
-                </div>
-              </div>
+              )}
 
               {/* Role Information */}
               <div className="space-y-4">
@@ -461,21 +622,33 @@ export function CreateUserModal({ trigger }: CreateUserModalProps) {
                       onChange={(e) =>
                         handleInputChange("jobTitle", e.target.value)
                       }
-                      placeholder="e.g., HR Manager, Career Counselor"
+                      placeholder={
+                        userType === "admin"
+                          ? "e.g., System Administrator"
+                          : userType === "employer"
+                            ? "e.g., HR Manager, Recruiter"
+                            : "e.g., Career Counselor, Dean"
+                      }
                       required
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="department">Department</Label>
-                    <Input
-                      id="department"
-                      value={formData.department}
-                      onChange={(e) =>
-                        handleInputChange("department", e.target.value)
-                      }
-                      placeholder="e.g., Human Resources, Career Services"
-                    />
-                  </div>
+                  {userType !== "admin" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="department">Department</Label>
+                      <Input
+                        id="department"
+                        value={formData.department}
+                        onChange={(e) =>
+                          handleInputChange("department", e.target.value)
+                        }
+                        placeholder={
+                          userType === "employer"
+                            ? "e.g., Human Resources"
+                            : "e.g., Career Services, Engineering"
+                        }
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 

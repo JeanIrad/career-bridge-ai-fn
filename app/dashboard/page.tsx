@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,25 @@ export default function Dashboard() {
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+
+  const handleInvalidAccountStatus = useCallback(
+    (status: string, email: string) => {
+      localStorage.removeItem("careerBridgeAIToken");
+      localStorage.removeItem("user");
+
+      const statusRoutes: Record<string, string> = {
+        PENDING: `/account-status?status=not_verified&email=${encodeURIComponent(email)}`,
+        INACTIVE: "/account-status?status=inactive",
+        SUSPENDED: "/account-status?status=suspended",
+        LOCKED: "/account-status?status=locked",
+      };
+
+      const targetRoute =
+        statusRoutes[status] || `/account-status?status=inactive`;
+      router.push(targetRoute);
+    },
+    [router]
+  );
 
   useEffect(() => {
     const redirectToRoleDashboard = () => {
@@ -69,23 +88,7 @@ export default function Dashboard() {
     };
 
     redirectToRoleDashboard();
-  }, [router]);
-
-  const handleInvalidAccountStatus = (status: string, email: string) => {
-    localStorage.removeItem("careerBridgeAIToken");
-    localStorage.removeItem("user");
-
-    const statusRoutes: Record<string, string> = {
-      PENDING: `/account-status?status=not_verified&email=${encodeURIComponent(email)}`,
-      INACTIVE: "/account-status?status=inactive",
-      SUSPENDED: "/account-status?status=suspended",
-      LOCKED: "/account-status?status=locked",
-    };
-
-    const targetRoute =
-      statusRoutes[status] || `/account-status?status=inactive`;
-    router.push(targetRoute);
-  };
+  }, [router, handleInvalidAccountStatus]);
 
   const getRoleInfo = (role: string) => {
     const roleInfo: Record<

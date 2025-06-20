@@ -1,5 +1,17 @@
 "use client";
 
+/**
+ * Enhanced Login Form with Network Error Handling
+ *
+ * Features:
+ * - Comprehensive network error detection (connection refused, timeouts, network unavailable)
+ * - User-friendly error messages for different network scenarios
+ * - Retry functionality with visual retry button for network errors
+ * - Server error handling (500, 503 status codes)
+ * - Account status error routing (verification, inactive, suspended, locked)
+ * - Loading states and form validation
+ */
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +25,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, EyeOff, Mail, Lock, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, AlertCircle, RefreshCw } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, LoginFormData } from "@/utils/schemas/auth";
@@ -28,6 +40,7 @@ interface LoginFormProps {
 export function LoginForm({ onToggleMode }: LoginFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [showRetry, setShowRetry] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -52,6 +65,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
   const onSubmit = async (data: LoginFormData) => {
     // Clear any previous auth errors
     setAuthError(null);
+    setShowRetry(false);
 
     console.log("Login data:", data);
 
@@ -61,8 +75,48 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
     try {
       loginUser(loginData, {
         onError: (error: any) => {
-          // Handle specific authentication errors
-          if (error.message?.includes("ACCOUNT_NOT_VERIFIED")) {
+          console.error("Login form error:", error);
+
+          // Handle network errors first
+          if (
+            error.message?.includes("NETWORK_ERROR") ||
+            error.message?.includes("CONNECTION_ERROR") ||
+            error.message?.includes("NETWORK_TIMEOUT") ||
+            error.message?.includes("NETWORK_UNAVAILABLE")
+          ) {
+            setAuthError(
+              "Connection failed. Please check your internet connection and try again."
+            );
+            setShowRetry(true);
+          } else if (
+            !error.response &&
+            (error.code === "ECONNREFUSED" || error.code === "ERR_NETWORK")
+          ) {
+            setAuthError(
+              "Unable to reach the server. Please check your connection and try again."
+            );
+            setShowRetry(true);
+          } else if (
+            !error.response &&
+            (error.code === "ETIMEDOUT" || error.message?.includes("timeout"))
+          ) {
+            setAuthError("Request timed out. Please try again.");
+            setShowRetry(true);
+          } else if (
+            !error.response &&
+            (error.message?.includes("Network Error") ||
+              error.name === "NetworkError")
+          ) {
+            setAuthError(
+              "Network error occurred. Please check your internet connection."
+            );
+            setShowRetry(true);
+          } else if (!error.response) {
+            setAuthError(
+              "Connection failed. Please check your internet connection and try again."
+            );
+            setShowRetry(true);
+          } else if (error.message?.includes("ACCOUNT_NOT_VERIFIED")) {
             const email = encodeURIComponent(data.email);
             router.push(`/account-status?status=not_verified&email=${email}`);
           } else if (error.message?.includes("ACCOUNT_INACTIVE")) {
@@ -71,6 +125,14 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
             router.push(`/account-status?status=suspended`);
           } else if (error.message?.includes("ACCOUNT_LOCKED")) {
             router.push(`/account-status?status=locked`);
+          } else if (error.response?.status === 500) {
+            setAuthError("Server error occurred. Please try again later.");
+            setShowRetry(true);
+          } else if (error.response?.status === 503) {
+            setAuthError(
+              "Service temporarily unavailable. Please try again later."
+            );
+            setShowRetry(true);
           } else {
             // Show general error in the form
             setAuthError("Invalid email or password. Please try again.");
@@ -79,7 +141,23 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
       });
     } catch (error) {
       console.error("Login error:", error);
-      setAuthError("An unexpected error occurred. Please try again.");
+
+      // Handle any synchronous errors or network issues
+      if (error instanceof Error) {
+        if (
+          error.message?.includes("Network") ||
+          error.name === "NetworkError"
+        ) {
+          setAuthError(
+            "Network error occurred. Please check your internet connection."
+          );
+          setShowRetry(true);
+        } else {
+          setAuthError("An unexpected error occurred. Please try again.");
+        }
+      } else {
+        setAuthError("An unexpected error occurred. Please try again.");
+      }
     }
   };
 
@@ -90,7 +168,13 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
     // Clear auth error when user starts typing
     if (authError) {
       setAuthError(null);
+      setShowRetry(false);
     }
+  };
+
+  const handleRetry = () => {
+    const formData = watch();
+    onSubmit(formData);
   };
 
   // Check for redirect or error parameters
@@ -122,11 +206,26 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
           {(authError || errorParam) && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                {authError ||
-                  (errorParam === "invalid_token"
-                    ? "Your session has expired. Please log in again."
-                    : "An error occurred. Please try again.")}
+              <AlertDescription className="flex items-center justify-between">
+                <span>
+                  {authError ||
+                    (errorParam === "invalid_token"
+                      ? "Your session has expired. Please log in again."
+                      : "An error occurred. Please try again.")}
+                </span>
+                {showRetry && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRetry}
+                    disabled={isPending}
+                    className="ml-2 h-8 px-3 bg-white hover:bg-gray-50 border-red-300 text-red-700 hover:text-red-800"
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Retry
+                  </Button>
+                )}
               </AlertDescription>
             </Alert>
           )}

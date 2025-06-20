@@ -3,10 +3,18 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/contexts/auth-context";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { getRoleDashboardRoute } from "@/lib/auth-utils";
-import { Shield, AlertTriangle, Home, ArrowLeft } from "lucide-react";
+import {
+  Shield,
+  AlertTriangle,
+  Home,
+  ArrowLeft,
+  Lock,
+  Eye,
+} from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -17,10 +25,14 @@ export default function UnauthorizedPage() {
   const router = useRouter();
   const [attemptedRoute, setAttemptedRoute] = useState<string>("");
   const [userRole, setUserRole] = useState<string>("");
+  const [reason, setReason] = useState<string>("");
+  const [authorizedRoute, setAuthorizedRoute] = useState<string>("");
 
   useEffect(() => {
     setAttemptedRoute(searchParams.get("attempted") || "");
     setUserRole(searchParams.get("role") || "");
+    setReason(searchParams.get("reason") || "");
+    setAuthorizedRoute(searchParams.get("authorized") || "");
   }, [searchParams]);
 
   const getRoleColor = (role: string) => {
@@ -73,11 +85,61 @@ export default function UnauthorizedPage() {
     return { name: "Protected Resource", requiredRoles: ["Authorized Users"] };
   };
 
+  const getErrorMessage = (
+    reason: string,
+    attemptedRoute: string,
+    userRole: string
+  ) => {
+    switch (reason) {
+      case "cross_dashboard_access":
+        return {
+          title: "Cross-Dashboard Access Denied",
+          message:
+            "You attempted to access a dashboard that doesn't belong to your role. Users can only access their designated dashboard.",
+          icon: <Eye className="w-5 h-5 text-amber-500" />,
+          severity: "warning" as const,
+        };
+      case "insufficient_permissions":
+        return {
+          title: "Insufficient Permissions",
+          message:
+            "Your current role does not have the required permissions to access this resource.",
+          icon: <Lock className="w-5 h-5 text-red-500" />,
+          severity: "error" as const,
+        };
+      case "unknown_role":
+        return {
+          title: "Unknown Role",
+          message:
+            "Your account has an unrecognized role. Please contact support for assistance.",
+          icon: <AlertTriangle className="w-5 h-5 text-red-500" />,
+          severity: "error" as const,
+        };
+      default:
+        return {
+          title: "Access Denied",
+          message: "You don't have permission to access this resource.",
+          icon: <Shield className="w-5 h-5 text-red-500" />,
+          severity: "error" as const,
+        };
+    }
+  };
+
   const routeInfo = getRouteDescription(attemptedRoute);
   const currentUserRole = user?.role || userRole;
   const userDashboard = currentUserRole
     ? getRoleDashboardRoute(currentUserRole)
     : "/";
+
+  const errorInfo = getErrorMessage(reason, attemptedRoute, currentUserRole);
+
+  const getAuthorizedDashboardName = (route: string) => {
+    if (route.includes("/dashboard/admin")) return "Admin Dashboard";
+    if (route.includes("/dashboard/employer")) return "Employer Dashboard";
+    if (route.includes("/dashboard/student")) return "Student Dashboard";
+    if (route.includes("/dashboard/university")) return "University Dashboard";
+    return "Your Dashboard";
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-orange-50 p-4">
@@ -88,59 +150,83 @@ export default function UnauthorizedPage() {
           </div>
           <div className="space-y-2">
             <div className="text-6xl font-bold text-red-600">403</div>
-            <CardTitle className="text-3xl">Access Denied</CardTitle>
+            <CardTitle className="text-3xl">{errorInfo.title}</CardTitle>
           </div>
         </CardHeader>
         <CardContent className="space-y-8">
-          <div className="space-y-4">
-            <p className="text-lg text-muted-foreground">
-              You don't have permission to access this resource.
-            </p>
+          <Alert
+            className={`border-2 ${
+              errorInfo.severity === "error"
+                ? "border-red-200 bg-red-50"
+                : "border-amber-200 bg-amber-50"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {errorInfo.icon}
+              <AlertDescription
+                className={
+                  errorInfo.severity === "error"
+                    ? "text-red-700"
+                    : "text-amber-700"
+                }
+              >
+                {errorInfo.message}
+              </AlertDescription>
+            </div>
+          </Alert>
 
-            {attemptedRoute && (
-              <div className="bg-gray-50 p-4 rounded-lg space-y-3">
-                <div className="flex items-center justify-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-amber-500" />
-                  <span className="font-medium">
-                    Access Restriction Details
-                  </span>
-                </div>
-
-                <div className="space-y-2 text-sm">
-                  <div>
-                    <span className="font-medium">Attempted to access:</span>
-                    <div className="mt-1 font-mono bg-white p-2 rounded border text-left">
-                      {routeInfo.name}
-                    </div>
-                  </div>
-
-                  <div>
-                    <span className="font-medium">Required roles:</span>
-                    <div className="mt-1 flex flex-wrap gap-1 justify-center">
-                      {routeInfo.requiredRoles.map((role) => (
-                        <Badge key={role} variant="outline" className="text-xs">
-                          {role}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-
-                  {currentUserRole && (
-                    <div>
-                      <span className="font-medium">Your current role:</span>
-                      <div className="mt-1">
-                        <Badge
-                          className={`text-xs ${getRoleColor(currentUserRole)}`}
-                        >
-                          {formatRole(currentUserRole)}
-                        </Badge>
-                      </div>
-                    </div>
-                  )}
-                </div>
+          {attemptedRoute && (
+            <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+              <div className="flex items-center justify-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-500" />
+                <span className="font-medium">Access Restriction Details</span>
               </div>
-            )}
-          </div>
+
+              <div className="space-y-3 text-sm">
+                <div>
+                  <span className="font-medium">Attempted to access:</span>
+                  <div className="mt-1 font-mono bg-white p-2 rounded border text-left">
+                    {routeInfo.name}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="font-medium">Required roles:</span>
+                  <div className="mt-1 flex flex-wrap gap-1 justify-center">
+                    {routeInfo.requiredRoles.map((role) => (
+                      <Badge key={role} variant="outline" className="text-xs">
+                        {role}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                {currentUserRole && (
+                  <div>
+                    <span className="font-medium">Your current role:</span>
+                    <div className="mt-1">
+                      <Badge
+                        className={`text-xs ${getRoleColor(currentUserRole)}`}
+                      >
+                        {formatRole(currentUserRole)}
+                      </Badge>
+                    </div>
+                  </div>
+                )}
+
+                {authorizedRoute && reason === "cross_dashboard_access" && (
+                  <div>
+                    <span className="font-medium">
+                      Your authorized dashboard:
+                    </span>
+                    <div className="mt-1 font-mono bg-green-50 p-2 rounded border text-left text-green-700">
+                      {getAuthorizedDashboardName(authorizedRoute)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
@@ -152,21 +238,31 @@ export default function UnauthorizedPage() {
               Go Back
             </Button>
 
-            <Link href={userDashboard}>
-              <Button className="flex items-center gap-2 w-full sm:w-auto">
-                <Home className="w-4 h-4" />
-                My Dashboard
-              </Button>
-            </Link>
+            {userDashboard && userDashboard !== "/" && (
+              <Link href={userDashboard}>
+                <Button className="flex items-center gap-2 w-full sm:w-auto">
+                  <Home className="w-4 h-4" />
+                  {authorizedRoute && reason === "cross_dashboard_access"
+                    ? `Go to ${getAuthorizedDashboardName(authorizedRoute)}`
+                    : "My Dashboard"}
+                </Button>
+              </Link>
+            )}
           </div>
 
           <div className="pt-6 border-t">
             <p className="text-sm text-muted-foreground mb-3">
-              Need access to this resource?
+              {reason === "unknown_role"
+                ? "Need help with your account role?"
+                : "Need access to this resource?"}
             </p>
             <div className="flex justify-center space-x-4">
               <Button variant="link" size="sm" asChild>
-                <a href="mailto:admin@careerbridge.ai">Contact Administrator</a>
+                <a href="mailto:admin@careerbridge.ai">
+                  {reason === "unknown_role"
+                    ? "Contact Support"
+                    : "Contact Administrator"}
+                </a>
               </Button>
               <LogoutButton
                 variant="link"

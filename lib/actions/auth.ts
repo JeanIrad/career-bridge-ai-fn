@@ -63,6 +63,26 @@ export const useLoginUser = () => {
         console.error("Error response:", error.response);
         console.error("Error data:", error.response?.data);
 
+        // Handle network errors first
+        if (!error.response) {
+          // Network error - no response received
+          if (error.code === "ECONNREFUSED" || error.code === "ERR_NETWORK") {
+            throw new Error("NETWORK_ERROR");
+          } else if (
+            error.code === "ETIMEDOUT" ||
+            error.message?.includes("timeout")
+          ) {
+            throw new Error("NETWORK_TIMEOUT");
+          } else if (
+            error.message?.includes("Network Error") ||
+            error.name === "NetworkError"
+          ) {
+            throw new Error("NETWORK_UNAVAILABLE");
+          } else {
+            throw new Error("CONNECTION_ERROR");
+          }
+        }
+
         // Handle specific account status errors
         if (error.response?.status === 403) {
           const errorData = error.response.data;
@@ -92,8 +112,20 @@ export const useLoginUser = () => {
       let showResendVerification = false;
       let showContactSupport = false;
 
-      // Handle custom error types
-      if (error.message === "ACCOUNT_NOT_VERIFIED") {
+      // Handle network-specific errors first
+      if (
+        error.message === "NETWORK_ERROR" ||
+        error.message === "CONNECTION_ERROR"
+      ) {
+        errorMessage =
+          "Unable to connect to the server. Please check your internet connection and try again.";
+      } else if (error.message === "NETWORK_TIMEOUT") {
+        errorMessage =
+          "The request timed out. Please check your connection and try again.";
+      } else if (error.message === "NETWORK_UNAVAILABLE") {
+        errorMessage =
+          "Network is unavailable. Please check your internet connection.";
+      } else if (error.message === "ACCOUNT_NOT_VERIFIED") {
         errorMessage =
           "Your account is not verified. Please check your email for the verification link.";
         showResendVerification = true;
@@ -168,17 +200,17 @@ export const useLoginUser = () => {
         if (redirectTo && redirectTo.startsWith("/dashboard")) {
           // Validate that user has access to the redirect route
           const userRole = user.role;
-          const roleBasedRoutes = {
+          const roleBasedRoutes: Record<string, string[]> = {
             "/dashboard/student": ["STUDENT", "ALUMNI"],
             "/dashboard/employer": ["EMPLOYER"],
             "/dashboard/admin": ["ADMIN", "SUPER_ADMIN"],
             "/dashboard/university": ["PROFESSOR", "UNIVERSITY_STAFF"],
-          } as const;
+          };
 
           let hasAccess = false;
           for (const [route, allowedRoles] of Object.entries(roleBasedRoutes)) {
             if (redirectTo.startsWith(route)) {
-              hasAccess = (allowedRoles as string[]).includes(userRole);
+              hasAccess = allowedRoles.includes(userRole);
               break;
             }
           }
@@ -215,6 +247,26 @@ export const useRegisterUser = () => {
         console.error("Error response:", error.response);
         console.error("Error data:", error.response?.data);
 
+        // Handle network errors first
+        if (!error.response) {
+          // Network error - no response received
+          if (error.code === "ECONNREFUSED" || error.code === "ERR_NETWORK") {
+            throw new Error("NETWORK_ERROR");
+          } else if (
+            error.code === "ETIMEDOUT" ||
+            error.message?.includes("timeout")
+          ) {
+            throw new Error("NETWORK_TIMEOUT");
+          } else if (
+            error.message?.includes("Network Error") ||
+            error.name === "NetworkError"
+          ) {
+            throw new Error("NETWORK_UNAVAILABLE");
+          } else {
+            throw new Error("CONNECTION_ERROR");
+          }
+        }
+
         // Re-throw to let React Query handle it
         throw error;
       }
@@ -225,6 +277,19 @@ export const useRegisterUser = () => {
       console.log("Error data:", error.response?.data);
 
       const getErrorMessage = (error: any): string => {
+        // Handle network-specific errors first
+        if (
+          error.message === "NETWORK_ERROR" ||
+          error.message === "CONNECTION_ERROR"
+        ) {
+          return "Unable to connect to the server. Please check your internet connection and try again.";
+        } else if (error.message === "NETWORK_TIMEOUT") {
+          return "The request timed out. Please check your connection and try again.";
+        } else if (error.message === "NETWORK_UNAVAILABLE") {
+          return "Network is unavailable. Please check your internet connection.";
+        }
+
+        // Handle server response errors
         if (error.response?.data?.message) return error.response.data.message;
         if (error.response?.data?.error) return error.response.data.error;
         if (error.response?.data?.errors) {
@@ -250,11 +315,11 @@ export const useRegisterUser = () => {
 };
 
 // Enhanced logout function
-export const logout = () => {
+export const logout = async () => {
   // Clear localStorage
   localStorage.removeItem("careerBridgeAIToken");
   localStorage.removeItem("user");
-
+  await api.post("/auth/logout");
   // Clear cookie
   document.cookie =
     "careerBridgeAIToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
@@ -282,13 +347,16 @@ export const checkAccountStatus = async (email: string) => {
   }
 };
 
-// Function to resend verification email
-export const resendVerificationEmail = async (email: string) => {
+// Function to resend verification link
+export const resendVerificationLink = async (email: string) => {
   try {
     const response = await api.post("/auth/resend-verification", { email });
     return response.data;
   } catch (error) {
-    console.error("Failed to resend verification email:", error);
+    console.error("Failed to resend verification link:", error);
     throw error;
   }
 };
+
+// Legacy alias for backward compatibility
+export const resendVerificationEmail = resendVerificationLink;

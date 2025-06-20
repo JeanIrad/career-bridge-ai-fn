@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminDashboardGuard } from "@/components/auth/RoleBasedAccess";
 import { TabbedDashboardLayout } from "@/components/layout/tabbed-dashboard-layout";
 import { AdminOverview } from "@/components/admin/admin-overview";
 import { AdminUsers } from "@/components/admin/admin-users";
@@ -7,7 +8,7 @@ import { AdminAnalytics } from "@/components/admin/admin-analytics";
 import { AdminSettings } from "@/components/admin/admin-settings";
 import { AdminSecurity } from "@/components/admin/admin-security";
 import { AdminModeration } from "@/components/admin/admin-moderation";
-import { AdminAlerts } from "@/components/admin/admin-alerts";
+import { AdminProfile } from "@/components/admin/admin-profile";
 import { AdminData } from "@/components/admin/admin-data";
 import {
   Home,
@@ -15,10 +16,11 @@ import {
   BarChart3,
   Settings,
   Shield,
-  AlertTriangle,
+  User,
   Database,
   MessageCircle,
 } from "lucide-react";
+import { getStoredUser } from "@/lib/auth-utils";
 
 export default function AdminDashboard() {
   const tabs = [
@@ -61,11 +63,10 @@ export default function AdminDashboard() {
       content: <AdminModeration />,
     },
     {
-      id: "alerts",
-      label: "Alerts & Monitoring",
-      icon: AlertTriangle,
-      badge: "3",
-      content: <AdminAlerts />,
+      id: "profile",
+      label: "Profile",
+      icon: User,
+      content: <AdminProfile />,
     },
     {
       id: "settings",
@@ -74,13 +75,17 @@ export default function AdminDashboard() {
       content: <AdminSettings />,
     },
   ];
+  const user = getStoredUser();
 
   return (
-    <TabbedDashboardLayout
-      tabs={tabs}
-      userRole="System Administrator"
-      userName="David Wilson"
-      defaultTab="overview"
-    />
+    <AdminDashboardGuard>
+      <TabbedDashboardLayout
+        tabs={tabs}
+        userRole={user?.role}
+        userName={user?.firstName + " " + user?.lastName}
+        defaultTab="overview"
+        user={user}
+      />
+    </AdminDashboardGuard>
   );
 }
