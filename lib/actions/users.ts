@@ -412,23 +412,93 @@ const flattenSearchParams = (params: UserSearchParams) => {
     sortOrder: params.sortOrder || "desc",
   };
 
-  // Build the filters using bracket notation that NestJS can parse
+  // Add all filter parameters directly at the top level
   if (params.filters) {
-    if (params.filters.search) {
-      apiParams["filters[search]"] = params.filters.search;
+    // Text search
+    if (params.filters.search && params.filters.search.trim() !== "") {
+      apiParams.search = params.filters.search.trim();
     }
 
+    // Role filters
     if (params.filters.roles && params.filters.roles.length > 0) {
-      // For arrays, use multiple parameters with the same name
-      params.filters.roles.forEach((role, index) => {
-        apiParams[`filters[roles][${index}]`] = role;
-      });
+      apiParams.roles = params.filters.roles;
     }
 
+    // Verification status
     if (params.filters.isVerified !== undefined) {
-      apiParams["filters[isVerified]"] = params.filters.isVerified;
+      apiParams.isVerified = params.filters.isVerified;
+    }
+
+    // Skills
+    if (params.filters.skills && params.filters.skills.length > 0) {
+      apiParams.skills = params.filters.skills;
+    }
+
+    // Location filters
+    if (params.filters.cities && params.filters.cities.length > 0) {
+      apiParams.cities = params.filters.cities;
+    }
+
+    if (params.filters.countries && params.filters.countries.length > 0) {
+      apiParams.countries = params.filters.countries;
+    }
+
+    // Education filters
+    if (params.filters.fields && params.filters.fields.length > 0) {
+      apiParams.fields = params.filters.fields;
+    }
+
+    if (params.filters.institutions && params.filters.institutions.length > 0) {
+      apiParams.institutions = params.filters.institutions;
+    }
+
+    if (params.filters.universities && params.filters.universities.length > 0) {
+      apiParams.universities = params.filters.universities;
+    }
+
+    // Academic filters
+    if (
+      params.filters.graduationYears &&
+      params.filters.graduationYears.length > 0
+    ) {
+      apiParams.graduationYears = params.filters.graduationYears;
+    }
+
+    if (params.filters.minGpa !== undefined) {
+      apiParams.minGpa = params.filters.minGpa;
+    }
+
+    if (params.filters.maxGpa !== undefined) {
+      apiParams.maxGpa = params.filters.maxGpa;
+    }
+
+    // Availability
+    if (params.filters.availability && params.filters.availability.length > 0) {
+      apiParams.availability = params.filters.availability;
+    }
+
+    // Experience filters
+    if (params.filters.minExperience !== undefined) {
+      apiParams.minExperience = params.filters.minExperience;
+    }
+
+    if (params.filters.maxExperience !== undefined) {
+      apiParams.maxExperience = params.filters.maxExperience;
+    }
+
+    // Visibility
+    if (params.filters.visibility && params.filters.visibility.length > 0) {
+      apiParams.visibility = params.filters.visibility;
+    }
+
+    // Student IDs
+    if (params.filters.studentIds && params.filters.studentIds.length > 0) {
+      apiParams.studentIds = params.filters.studentIds;
     }
   }
+
+  // Log for debugging
+  console.log("Flattened API Parameters:", apiParams);
 
   return apiParams;
 };

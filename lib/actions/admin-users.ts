@@ -55,7 +55,7 @@ export const useAdminUsers = (params: AdminUserSearchParams) => {
     queryKey: ["admin", "users", params],
     queryFn: async (): Promise<PaginatedUsersResponse> => {
       try {
-        // Build API parameters in the structure the backend expects
+        // Build API parameters using the new flattened structure
         const apiParams: any = {
           page: params.page || 1,
           limit: params.limit || 10,
@@ -63,32 +63,49 @@ export const useAdminUsers = (params: AdminUserSearchParams) => {
           sortOrder: params.sortOrder || "desc",
         };
 
-        // Build the filters using bracket notation that NestJS can parse
+        // Add filter parameters directly at the top level
         if (params.filters) {
-          if (params.filters.search) {
-            apiParams["filters[search]"] = params.filters.search;
+          if (params.filters.search && params.filters.search.trim() !== "") {
+            apiParams.search = params.filters.search.trim();
           }
 
           if (params.filters.roles && params.filters.roles.length > 0) {
-            // For arrays, use multiple parameters with the same name
-            params.filters.roles.forEach((role, index) => {
-              apiParams[`filters[roles][${index}]`] = role;
-            });
+            apiParams.roles = params.filters.roles;
           }
 
           if (
             params.filters.verificationStatus &&
             params.filters.verificationStatus !== "all"
           ) {
-            apiParams["filters[isVerified]"] =
+            apiParams.isVerified =
               params.filters.verificationStatus === "verified";
+          }
+
+          // Add other admin-specific filters
+          if (
+            params.filters.universities &&
+            params.filters.universities.length > 0
+          ) {
+            apiParams.universities = params.filters.universities;
+          }
+
+          if (params.filters.companies && params.filters.companies.length > 0) {
+            // Note: The backend might not support this yet, but we can add it
+            // apiParams.companies = params.filters.companies;
           }
         }
 
-        const response = await api.get("/users/search", { params: apiParams });
+        // Log the parameters being sent for debugging
+        console.log("Admin API Parameters being sent:", apiParams);
+
+        // Use the new admin-specific endpoint
+        const response = await api.get("/users/admin/users", {
+          params: apiParams,
+        });
         return response.data;
       } catch (error: any) {
         console.error("Error fetching admin users:", error);
+        console.error("Error response:", error.response?.data);
         throw error;
       }
     },
@@ -227,6 +244,181 @@ export const useBulkUserAction = () => {
   });
 };
 
+// ============= INDIVIDUAL USER MANAGEMENT ACTIONS =============
+
+/**
+ * Suspend a user account (Admin only)
+ */
+export const useSuspendUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: { userId: string; reason?: string }) => {
+      try {
+        const response = await api.patch(`/users/${params.userId}/suspend`, {
+          reason: params.reason,
+        });
+        return response.data;
+      } catch (error: any) {
+        console.error("Error suspending user:", error);
+        throw error;
+      }
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      queryClient.invalidateQueries({
+        queryKey: ["users", "profile", variables.userId],
+      });
+
+      toast.success("User suspended successfully", toastSuccessStyles);
+    },
+    onError: (error: any) => {
+      const errorMessage =
+        error.response?.data?.message || "Failed to suspend user";
+      toast.error(errorMessage, toastErrorStyles);
+    },
+  });
+};
+
+/**
+ * Activate a user account (Admin only)
+ */
+export const useActivateUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: { userId: string; reason?: string }) => {
+      try {
+        const response = await api.patch(`/users/${params.userId}/activate`, {
+          reason: params.reason,
+        });
+        return response.data;
+      } catch (error: any) {
+        console.error("Error activating user:", error);
+        throw error;
+      }
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      queryClient.invalidateQueries({
+        queryKey: ["users", "profile", variables.userId],
+      });
+
+      toast.success("User activated successfully", toastSuccessStyles);
+    },
+    onError: (error: any) => {
+      const errorMessage =
+        error.response?.data?.message || "Failed to activate user";
+      toast.error(errorMessage, toastErrorStyles);
+    },
+  });
+};
+
+/**
+ * Deactivate a user account (Admin only)
+ */
+export const useDeactivateUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: { userId: string; reason?: string }) => {
+      try {
+        const response = await api.patch(`/users/${params.userId}/deactivate`, {
+          reason: params.reason,
+        });
+        return response.data;
+      } catch (error: any) {
+        console.error("Error deactivating user:", error);
+        throw error;
+      }
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      queryClient.invalidateQueries({
+        queryKey: ["users", "profile", variables.userId],
+      });
+
+      toast.success("User deactivated successfully", toastSuccessStyles);
+    },
+    onError: (error: any) => {
+      const errorMessage =
+        error.response?.data?.message || "Failed to deactivate user";
+      toast.error(errorMessage, toastErrorStyles);
+    },
+  });
+};
+
+/**
+ * Soft delete a user account (Admin only)
+ */
+export const useSoftDeleteUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: { userId: string; reason?: string }) => {
+      try {
+        const response = await api.delete(`/users/${params.userId}/soft`, {
+          data: { reason: params.reason },
+        });
+        return response.data;
+      } catch (error: any) {
+        console.error("Error deleting user:", error);
+        throw error;
+      }
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      queryClient.invalidateQueries({
+        queryKey: ["users", "profile", variables.userId],
+      });
+
+      toast.success("User deleted successfully", toastSuccessStyles);
+    },
+    onError: (error: any) => {
+      const errorMessage =
+        error.response?.data?.message || "Failed to delete user";
+      toast.error(errorMessage, toastErrorStyles);
+    },
+  });
+};
+
+/**
+ * Send a message to a user
+ */
+export const useSendMessage = () => {
+  return useMutation({
+    mutationFn: async (params: {
+      recipientId: string;
+      content: string;
+      groupId?: string;
+    }) => {
+      try {
+        const response = await api.post("/chats/messages", {
+          recipientId: params.recipientId,
+          content: params.content,
+          groupId: params.groupId,
+        });
+        return response.data;
+      } catch (error: any) {
+        console.error("Error sending message:", error);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success("Message sent successfully", toastSuccessStyles);
+    },
+    onError: (error: any) => {
+      const errorMessage =
+        error.response?.data?.message || "Failed to send message";
+      toast.error(errorMessage, toastErrorStyles);
+    },
+  });
+};
+
 /**
  * Helper to build admin search parameters
  */
@@ -246,4 +438,68 @@ export const buildAdminUserSearchParams = (
     sortOrder: pagination.sortOrder || "desc",
     filters,
   };
+};
+
+// Create User Hook
+export const useCreateUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (userData: {
+      // Basic Information
+      firstName: string;
+      lastName: string;
+      email: string;
+      phoneNumber?: string;
+      role: string;
+
+      // Organization Information
+      organizationName?: string;
+      organizationWebsite?: string;
+      organizationDescription?: string;
+      organizationSize?: string;
+      industry?: string;
+
+      // Location
+      country?: string;
+      state?: string;
+      city?: string;
+
+      // Role & Permissions
+      jobTitle?: string;
+      department?: string;
+
+      // University Specific
+      universityType?: string;
+      accreditation?: string;
+      university?: string;
+
+      // Employer Specific
+      companyType?: string;
+      foundedYear?: number;
+      specializations?: string[];
+
+      // Admin Specific
+      adminLevel?: string;
+      permissions?: string[];
+
+      // Account Settings
+      sendWelcomeEmail?: boolean;
+      requirePasswordReset?: boolean;
+      isVerified?: boolean;
+      accountStatus?: string;
+    }) => {
+      const response = await api.post("/users/admin/create", userData);
+      return response.data;
+    },
+    onSuccess: () => {
+      // Invalidate user lists to refresh data
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      queryClient.invalidateQueries({ queryKey: ["user-stats"] });
+    },
+    onError: (error: any) => {
+      console.error("Create user error:", error);
+      throw error;
+    },
+  });
 };

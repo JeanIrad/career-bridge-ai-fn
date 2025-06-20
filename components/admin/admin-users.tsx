@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -24,18 +24,30 @@ import {
   Search,
   Filter,
   MoreHorizontal,
+  Users,
   UserCheck,
   UserX,
   Mail,
   Calendar,
   Building2,
   GraduationCap,
-  Users,
   Activity,
   Shield,
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  Loader2,
+  RefreshCw,
+  Download,
+  Upload,
+  Plus,
+  Eye,
+  MessageSquare,
+  ShieldCheck,
+  ShieldAlert,
+  Trash2,
+  UserMinus,
+  UserPlus,
 } from "lucide-react";
 import {
   Table,
@@ -64,19 +76,67 @@ import {
   useAdminUsers,
   buildAdminUserSearchParams,
   type AdminUserFilters,
+  useSuspendUser,
+  useActivateUser,
+  useDeactivateUser,
+  useSoftDeleteUser,
+  useSendMessage,
 } from "@/lib/actions/admin-users";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DeleteUserConfirmDialog,
+  UnverifyUserConfirmDialog,
+  SuspendUserModal,
+  ActivateUserModal,
+  DeactivateUserModal,
+  SendMessageModal,
+  ViewUserProfileModal,
+} from "./user-management-modals";
+
+// Custom hook for debounced search
+const useDebounce = (value: string, delay: number) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+};
 
 export function AdminUsers() {
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [verificationFilter, setVerificationFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
+  const [pageSize] = useState(10);
+
+  // Modal states
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [modals, setModals] = useState({
+    viewProfile: false,
+    sendMessage: false,
+    suspend: false,
+    activate: false,
+    deactivate: false,
+    delete: false,
+    unverify: false,
+  });
+
+  // Debounce search input with 500ms delay
+  const debouncedSearchTerm = useDebounce(searchInput, 500);
 
   // Build search parameters using admin-specific filters
   const filters: AdminUserFilters = {
-    search: searchTerm || undefined,
+    search: debouncedSearchTerm || undefined,
     roles: roleFilter !== "all" ? [roleFilter] : undefined,
     // Temporarily disable account status filter until backend supports it
     // accountStatus: statusFilter !== "all" ? [statusFilter] : undefined,
@@ -88,7 +148,7 @@ export function AdminUsers() {
 
   const searchParams = buildAdminUserSearchParams(filters, {
     page: currentPage,
-    limit: 10,
+    limit: pageSize,
     sortBy: "createdAt",
     sortOrder: "desc",
   });
@@ -110,53 +170,96 @@ export function AdminUsers() {
   // Mutations for user management
   const verifyUserMutation = useVerifyUser();
   const updateStatusMutation = useUpdateAccountStatus();
+  const suspendUserMutation = useSuspendUser();
+  const activateUserMutation = useActivateUser();
+  const deactivateUserMutation = useDeactivateUser();
+  const deleteUserMutation = useSoftDeleteUser();
+  const sendMessageMutation = useSendMessage();
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchTerm, roleFilter, verificationFilter]);
 
   // Event handlers
-  const handleSearch = (value: string) => {
-    setSearchTerm(value);
-    setCurrentPage(1);
-  };
+  const handleSearchInput = useCallback((value: string) => {
+    setSearchInput(value);
+  }, []);
 
-  const handleRoleFilter = (value: string) => {
+  const handleRoleFilter = useCallback((value: string) => {
     setRoleFilter(value);
-    setCurrentPage(1);
-  };
+  }, []);
 
-  const handleStatusFilter = (value: string) => {
+  const handleStatusFilter = useCallback((value: string) => {
     setStatusFilter(value);
-    setCurrentPage(1);
-  };
+  }, []);
 
-  const handleVerificationFilter = (value: string) => {
+  const handleVerificationFilter = useCallback((value: string) => {
     setVerificationFilter(value);
-    setCurrentPage(1);
-  };
+  }, []);
 
-  const handleVerifyUser = (userId: string, isVerified: boolean) => {
+  const handleVerifyUser = (
+    userId: string,
+    isVerified: boolean,
+    verificationNote?: string
+  ) => {
     verifyUserMutation.mutate({
       userId,
       isVerified,
-      verificationNote: isVerified
-        ? "Verified by admin"
-        : "Unverified by admin",
+      verificationNote,
     });
   };
 
-  const handleUpdateStatus = (
-    userId: string,
-    status: string,
-    reason?: string
-  ) => {
-    updateStatusMutation.mutate({
-      userId,
-      status,
-      reason,
+  const handleSuspendUser = (data: { userId: string; reason?: string }) => {
+    suspendUserMutation.mutate(data, {
+      onSuccess: () => closeModal("suspend"),
     });
   };
 
-  const handlePageChange = (page: number) => {
+  const handleActivateUser = (data: { userId: string; reason?: string }) => {
+    activateUserMutation.mutate(data, {
+      onSuccess: () => closeModal("activate"),
+    });
+  };
+
+  const handleDeactivateUser = (data: { userId: string; reason?: string }) => {
+    deactivateUserMutation.mutate(data, {
+      onSuccess: () => closeModal("deactivate"),
+    });
+  };
+
+  const handleDeleteUser = (data: { userId: string; reason?: string }) => {
+    deleteUserMutation.mutate(data, {
+      onSuccess: () => closeModal("delete"),
+    });
+  };
+
+  const handleSendMessage = (data: {
+    recipientId: string;
+    content: string;
+  }) => {
+    sendMessageMutation.mutate(data, {
+      onSuccess: () => closeModal("sendMessage"),
+    });
+  };
+
+  const handleUnverifyUser = (data: {
+    userId: string;
+    isVerified: boolean;
+    verificationNote?: string;
+  }) => {
+    verifyUserMutation.mutate(data, {
+      onSuccess: () => closeModal("unverify"),
+    });
+  };
+
+  const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
-  };
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    refetchUsers();
+  }, [refetchUsers]);
 
   // Helper functions
   const getRoleIcon = (role: string) => {
@@ -208,6 +311,10 @@ export function AdminUsers() {
     return formatDate(dateString);
   };
 
+  const getInitials = (firstName: string, lastName: string) => {
+    return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
+  };
+
   // Render loading skeleton
   const renderLoadingSkeleton = () => (
     <div className="space-y-4">
@@ -224,6 +331,142 @@ export function AdminUsers() {
       ))}
     </div>
   );
+
+  // Modal handlers
+  const openModal = (modalType: keyof typeof modals, user: UserProfile) => {
+    setSelectedUser(user);
+    setModals((prev) => ({ ...prev, [modalType]: true }));
+  };
+
+  const closeModal = (modalType: keyof typeof modals) => {
+    setModals((prev) => ({ ...prev, [modalType]: false }));
+    setSelectedUser(null);
+  };
+
+  const closeAllModals = () => {
+    setModals({
+      viewProfile: false,
+      sendMessage: false,
+      suspend: false,
+      activate: false,
+      deactivate: false,
+      delete: false,
+      unverify: false,
+    });
+    setSelectedUser(null);
+  };
+
+  // Helper functions for rendering action buttons
+  const getActionButtons = (user: any) => {
+    const actions = [];
+
+    // View Profile
+    actions.push(
+      <DropdownMenuItem
+        key="view"
+        onClick={() => openModal("viewProfile", user)}
+        className="cursor-pointer"
+      >
+        <Eye className="mr-2 h-4 w-4" />
+        View Profile
+      </DropdownMenuItem>
+    );
+
+    // Send Message
+    actions.push(
+      <DropdownMenuItem
+        key="message"
+        onClick={() => openModal("sendMessage", user)}
+        className="cursor-pointer"
+      >
+        <MessageSquare className="mr-2 h-4 w-4" />
+        Send Message
+      </DropdownMenuItem>
+    );
+
+    actions.push(<DropdownMenuSeparator key="sep1" />);
+
+    // Verification Actions
+    if (user.isVerified) {
+      actions.push(
+        <DropdownMenuItem
+          key="unverify"
+          onClick={() => openModal("unverify", user)}
+          className="cursor-pointer text-orange-600"
+        >
+          <ShieldAlert className="mr-2 h-4 w-4" />
+          Unverify User
+        </DropdownMenuItem>
+      );
+    } else {
+      actions.push(
+        <DropdownMenuItem
+          key="verify"
+          onClick={() => handleVerifyUser(user.id, true, "Verified by admin")}
+          disabled={verifyUserMutation.isPending}
+          className="cursor-pointer text-green-600"
+        >
+          <ShieldCheck className="mr-2 h-4 w-4" />
+          Verify User
+        </DropdownMenuItem>
+      );
+    }
+
+    // Status Actions
+    switch (user.accountStatus) {
+      case "ACTIVE":
+        actions.push(
+          <DropdownMenuItem
+            key="suspend"
+            onClick={() => openModal("suspend", user)}
+            className="cursor-pointer text-red-600"
+          >
+            <UserX className="mr-2 h-4 w-4" />
+            Suspend User
+          </DropdownMenuItem>
+        );
+        actions.push(
+          <DropdownMenuItem
+            key="deactivate"
+            onClick={() => openModal("deactivate", user)}
+            className="cursor-pointer text-gray-600"
+          >
+            <UserMinus className="mr-2 h-4 w-4" />
+            Deactivate User
+          </DropdownMenuItem>
+        );
+        break;
+      case "SUSPENDED":
+      case "INACTIVE":
+        actions.push(
+          <DropdownMenuItem
+            key="activate"
+            onClick={() => openModal("activate", user)}
+            className="cursor-pointer text-green-600"
+          >
+            <UserPlus className="mr-2 h-4 w-4" />
+            Activate User
+          </DropdownMenuItem>
+        );
+        break;
+    }
+
+    actions.push(<DropdownMenuSeparator key="sep2" />);
+
+    // Delete Action
+    actions.push(
+      <DropdownMenuItem
+        key="delete"
+        onClick={() => openModal("delete", user)}
+        className="cursor-pointer text-red-600"
+      >
+        <Trash2 className="mr-2 h-4 w-4" />
+        Delete User
+      </DropdownMenuItem>
+    );
+
+    return actions;
+  };
 
   return (
     <div className="space-y-8">
@@ -244,6 +487,10 @@ export function AdminUsers() {
             {showFilters ? "Hide Filters" : "Show Filters"}
           </Button>
           <CreateUserModal />
+          <Button variant="outline" onClick={handleRefresh}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
         </div>
       </div>
 
@@ -418,11 +665,14 @@ export function AdminUsers() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search users..."
-                    value={searchTerm}
-                    onChange={(e) => handleSearch(e.target.value)}
+                    placeholder="Search users... (searches after 500ms)"
+                    value={searchInput}
+                    onChange={(e) => handleSearchInput(e.target.value)}
                     className="pl-10"
                   />
+                  {usersLoading && searchInput && (
+                    <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
                 </div>
               </div>
             </div>
@@ -448,8 +698,8 @@ export function AdminUsers() {
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search users..."
-                    value={searchTerm}
-                    onChange={(e) => handleSearch(e.target.value)}
+                    value={searchInput}
+                    onChange={(e) => handleSearchInput(e.target.value)}
                     className="pl-10 w-64"
                   />
                 </div>
@@ -468,7 +718,7 @@ export function AdminUsers() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => refetchUsers()}
+                  onClick={handleRefresh}
                   className="ml-2"
                 >
                   Retry
@@ -498,10 +748,15 @@ export function AdminUsers() {
                       <TableRow key={user.id}>
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-primary to-accent flex items-center justify-center text-white font-semibold">
-                              {user.firstName?.charAt(0) ||
-                                user.email.charAt(0)}
-                            </div>
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage
+                                src={user.avatar}
+                                alt={user.firstName}
+                              />
+                              <AvatarFallback>
+                                {getInitials(user.firstName, user.lastName)}
+                              </AvatarFallback>
+                            </Avatar>
                             <div>
                               <div className="flex items-center gap-2">
                                 <span className="font-medium">
@@ -553,46 +808,7 @@ export function AdminUsers() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem>
-                                <Users className="mr-2 h-4 w-4" />
-                                View Profile
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <Mail className="mr-2 h-4 w-4" />
-                                Send Message
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  handleVerifyUser(user.id, !user.isVerified)
-                                }
-                                disabled={verifyUserMutation.isPending}
-                              >
-                                <UserCheck className="mr-2 h-4 w-4" />
-                                {user.isVerified ? "Unverify" : "Verify"} User
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  handleUpdateStatus(
-                                    user.id,
-                                    user.accountStatus === "ACTIVE"
-                                      ? "SUSPENDED"
-                                      : "ACTIVE"
-                                  )
-                                }
-                                disabled={updateStatusMutation.isPending}
-                                className={
-                                  user.accountStatus === "ACTIVE"
-                                    ? "text-red-600"
-                                    : "text-green-600"
-                                }
-                              >
-                                <UserX className="mr-2 h-4 w-4" />
-                                {user.accountStatus === "ACTIVE"
-                                  ? "Suspend"
-                                  : "Activate"}{" "}
-                                User
-                              </DropdownMenuItem>
+                              {getActionButtons(user)}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -643,6 +859,61 @@ export function AdminUsers() {
           )}
         </CardContent>
       </Card>
+
+      {/* ============= MODALS ============= */}
+      <ViewUserProfileModal
+        user={selectedUser}
+        isOpen={modals.viewProfile}
+        onClose={() => closeModal("viewProfile")}
+      />
+
+      <SendMessageModal
+        user={selectedUser}
+        isOpen={modals.sendMessage}
+        onClose={() => closeModal("sendMessage")}
+        onConfirm={handleSendMessage}
+        isLoading={sendMessageMutation.isPending}
+      />
+
+      <SuspendUserModal
+        user={selectedUser}
+        isOpen={modals.suspend}
+        onClose={() => closeModal("suspend")}
+        onConfirm={handleSuspendUser}
+        isLoading={suspendUserMutation.isPending}
+      />
+
+      <ActivateUserModal
+        user={selectedUser}
+        isOpen={modals.activate}
+        onClose={() => closeModal("activate")}
+        onConfirm={handleActivateUser}
+        isLoading={activateUserMutation.isPending}
+      />
+
+      <DeactivateUserModal
+        user={selectedUser}
+        isOpen={modals.deactivate}
+        onClose={() => closeModal("deactivate")}
+        onConfirm={handleDeactivateUser}
+        isLoading={deactivateUserMutation.isPending}
+      />
+
+      <DeleteUserConfirmDialog
+        user={selectedUser}
+        isOpen={modals.delete}
+        onClose={() => closeModal("delete")}
+        onConfirm={handleDeleteUser}
+        isLoading={deleteUserMutation.isPending}
+      />
+
+      <UnverifyUserConfirmDialog
+        user={selectedUser}
+        isOpen={modals.unverify}
+        onClose={() => closeModal("unverify")}
+        onConfirm={handleUnverifyUser}
+        isLoading={verifyUserMutation.isPending}
+      />
     </div>
   );
 }

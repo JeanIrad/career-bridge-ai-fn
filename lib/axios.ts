@@ -6,6 +6,10 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  // Configure array parameter serialization
+  paramsSerializer: {
+    indexes: null, // Use roles=value1&roles=value2 format instead of roles[0]=value1&roles[1]=value2
+  },
 });
 
 // Optional: Add a request interceptor
