@@ -1,9 +1,15 @@
-import { DashboardLayout } from "@/components/dashboard/dashboard-layout";
-import { AuthProvider } from "@/contexts/auth-context";
+import { ProtectedRoute } from "@/components/auth/protected-route";
+
 export default function DashLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <AuthProvider>{children}</AuthProvider>;
+  return (
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gray-50">
+        <main>{children}</main>
+      </div>
+    </ProtectedRoute>
+  );
 }

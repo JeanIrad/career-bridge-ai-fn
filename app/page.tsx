@@ -100,13 +100,17 @@ export default function Home() {
     { label: "Job Placements", value: "10,000+", icon: Briefcase },
     { label: "Success Rate", value: "95%", icon: TrendingUp },
   ];
-
+  console.log("Home page rendered");
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // if(e.currentTarget)
+    console.log("clicked", e.target);
+  };
   return (
-    <div className="min-h-screen bg-gradient-to-br">
+    <div className="min-h-screen bg-gradient-to-br" onClick={handleClick}>
       {/* Hero Section */}
       <div className="relative overflow-hidden">
-        <div className="absolute inset-0 gradient-bg opacity-5"></div>
-        <div className="container mx-auto px-6 py-16">
+        <div className="absolute inset-0 gradient-bg opacity-5 pointer-events-none"></div>
+        <div className="container mx-auto px-6 py-16 relative z-10">
           <div className="text-center mb-16">
             <div className="flex items-center justify-center gap-2 mb-6">
               <div className="w-12 h-12 rounded-xl gradient-bg flex items-center justify-center">
@@ -192,8 +196,16 @@ export default function Home() {
                         </Badge>
                       ))}
                     </div>
-                    <Link href={role.route} className="w-full">
-                      <Button className="w-full group">
+                    <Link
+                      href={`/login?redirect=${encodeURIComponent(role.route)}`}
+                      className="w-full"
+                    >
+                      <Button
+                        className="w-full group"
+                        onClick={() => {
+                          console.log("clicked", role.route);
+                        }}
+                      >
                         Enter Dashboard
                         <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
                       </Button>

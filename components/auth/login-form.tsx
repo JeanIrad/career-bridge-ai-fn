@@ -13,26 +13,24 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, EyeOff, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, AlertCircle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, LoginFormData } from "@/utils/schemas/auth";
 import { useLoginUser } from "@/lib/actions/auth";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface LoginFormProps {
   onToggleMode: () => void;
 }
 
 export function LoginForm({ onToggleMode }: LoginFormProps) {
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-    rememberMe: false,
-  });
   const [showPassword, setShowPassword] = useState(false);
-  // const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const {
     register,
     handleSubmit,
@@ -45,18 +43,43 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
     defaultValues: {
       email: "",
       password: "",
+      rememberMe: false,
     },
   });
 
-  const { mutate, isPending } = useLoginUser();
+  const { mutate: loginUser, isPending } = useLoginUser();
+
   const onSubmit = async (data: LoginFormData) => {
-    setIsLoading(true);
+    // Clear any previous auth errors
+    setAuthError(null);
+
+    console.log("Login data:", data);
+
+    // Extract rememberMe from data and pass the rest to login
+    const { rememberMe, ...loginData } = data;
+
     try {
-      mutate(data);
-      setIsLoading(false);
+      loginUser(loginData, {
+        onError: (error: any) => {
+          // Handle specific authentication errors
+          if (error.message?.includes("ACCOUNT_NOT_VERIFIED")) {
+            const email = encodeURIComponent(data.email);
+            router.push(`/account-status?status=not_verified&email=${email}`);
+          } else if (error.message?.includes("ACCOUNT_INACTIVE")) {
+            router.push(`/account-status?status=inactive`);
+          } else if (error.message?.includes("ACCOUNT_SUSPENDED")) {
+            router.push(`/account-status?status=suspended`);
+          } else if (error.message?.includes("ACCOUNT_LOCKED")) {
+            router.push(`/account-status?status=locked`);
+          } else {
+            // Show general error in the form
+            setAuthError("Invalid email or password. Please try again.");
+          }
+        },
+      });
     } catch (error) {
-      console.error("Signup error:", error);
-      setIsLoading(false);
+      console.error("Login error:", error);
+      setAuthError("An unexpected error occurred. Please try again.");
     }
   };
 
@@ -64,8 +87,18 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
     if (errors[field]) {
       clearErrors(field);
     }
+    // Clear auth error when user starts typing
+    if (authError) {
+      setAuthError(null);
+    }
   };
+
+  // Check for redirect or error parameters
+  const redirectPath = searchParams.get("redirect");
+  const errorParam = searchParams.get("error");
+
   const rememberMe = watch("rememberMe");
+
   return (
     <Card className="w-full max-w-md mx-auto shadow-xl border-0 bg-white/95 backdrop-blur-sm">
       <CardHeader className="space-y-1 text-center">
@@ -74,11 +107,30 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
         </CardTitle>
         <CardDescription className="text-gray-600">
           Sign in to your account to continue
+          {redirectPath && (
+            <span className="block text-xs mt-2 text-blue-600">
+              You'll be redirected to {redirectPath.replace("/dashboard/", "")}{" "}
+              dashboard
+            </span>
+          )}
         </CardDescription>
       </CardHeader>
 
       <form onSubmit={handleSubmit(onSubmit)}>
         <CardContent className="space-y-4">
+          {/* Show error messages */}
+          {(authError || errorParam) && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {authError ||
+                  (errorParam === "invalid_token"
+                    ? "Your session has expired. Please log in again."
+                    : "An error occurred. Please try again.")}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="space-y-2">
             <Label
               htmlFor="email"
@@ -97,7 +149,12 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
                   register("email").onChange(e);
                   handleInputChange("email");
                 }}
-                className={`pl-10 ${errors.email ? "border-red-500 focus:ring-red-500" : "border-gray-300 focus:ring-blue-500"} transition-all duration-200`}
+                className={`pl-10 ${
+                  errors.email
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
+                } transition-all duration-200`}
+                disabled={isPending}
               />
             </div>
             {errors.email && (
@@ -125,17 +182,18 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
                   register("password").onChange(e);
                   handleInputChange("password");
                 }}
-                className={`pl-10 pr-10 ${errors.password ? "border-red-500 focus:ring-red-500" : "border-gray-300 focus:ring-blue-500"} transition-all duration-200`}
+                className={`pl-10 pr-10 ${
+                  errors.password
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
+                } transition-all duration-200`}
+                disabled={isPending}
               />
-              {errors.password && (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.password.message}
-                </p>
-              )}
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                disabled={isPending}
               >
                 {showPassword ? (
                   <EyeOff className="h-4 w-4" />
@@ -160,6 +218,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
                   setValue("rememberMe", checked as boolean);
                   handleInputChange("rememberMe");
                 }}
+                disabled={isPending}
               />
               <Label
                 htmlFor="remember"
@@ -172,6 +231,8 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
               variant="link"
               type="button"
               className="text-sm text-blue-600 hover:text-blue-800 p-0"
+              onClick={() => router.push("/forgot-password")}
+              disabled={isPending}
             >
               Forgot password?
             </Button>
@@ -181,22 +242,44 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
         <CardFooter className="flex flex-col space-y-4">
           <Button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 transition-all duration-200 transform hover:scale-[1.02]"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 transition-all duration-200 transform hover:scale-[1.02] disabled:hover:scale-100 disabled:opacity-50"
             disabled={isPending}
           >
             {isPending ? "Signing in..." : "Sign in"}
           </Button>
 
-          <p className="text-center text-sm text-gray-600">
-            Don't have an account?{" "}
-            <button
-              type="button"
-              onClick={onToggleMode}
-              className="text-blue-600 hover:text-blue-800 font-medium transition-colors duration-200"
-            >
-              Sign up
-            </button>
-          </p>
+          <div className="text-center space-y-2">
+            <p className="text-sm text-gray-600">
+              Don't have an account?{" "}
+              <button
+                type="button"
+                onClick={onToggleMode}
+                className="text-blue-600 hover:text-blue-800 font-medium transition-colors duration-200"
+                disabled={isPending}
+              >
+                Sign up
+              </button>
+            </p>
+
+            {/* Role-based login hints */}
+            <div className="text-xs text-gray-500">
+              <p>Login as:</p>
+              <div className="flex flex-wrap justify-center gap-2 mt-1">
+                <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded">
+                  Student
+                </span>
+                <span className="px-2 py-1 bg-green-50 text-green-700 rounded">
+                  Employer
+                </span>
+                <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded">
+                  Admin
+                </span>
+                <span className="px-2 py-1 bg-orange-50 text-orange-700 rounded">
+                  University
+                </span>
+              </div>
+            </div>
+          </div>
         </CardFooter>
       </form>
     </Card>

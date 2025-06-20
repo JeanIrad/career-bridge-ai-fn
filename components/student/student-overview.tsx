@@ -11,6 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
+  RoleGuard,
+  AdminOnly,
+  EmployerOnly,
+  UniversityOnly,
+} from "@/components/auth/role-guard";
+import {
   Briefcase,
   TrendingUp,
   Users,
@@ -23,7 +29,10 @@ import {
   Calendar,
   BookOpen,
   GraduationCap,
+  Shield,
+  AlertTriangle,
 } from "lucide-react";
+import Link from "next/link";
 
 export function StudentOverview() {
   const quickStats = [
@@ -153,6 +162,118 @@ export function StudentOverview() {
         </div>
       </div>
 
+      {/* Role-Based Access Control Demo */}
+      <Card className="border-2 border-dashed border-blue-200 bg-blue-50/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="w-5 h-5 text-blue-600" />
+            Role-Based Access Control Demo
+          </CardTitle>
+          <CardDescription>
+            This section demonstrates the access control system. Different
+            content is shown based on your role.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <h4 className="font-medium text-green-700">
+                ✅ You can see (Student/Alumni):
+              </h4>
+              <ul className="text-sm space-y-1 text-green-600">
+                <li>• Student dashboard and features</li>
+                <li>• Job search and applications</li>
+                <li>• Learning resources</li>
+                <li>• Career development tools</li>
+              </ul>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="font-medium text-red-700">
+                ❌ You cannot access:
+              </h4>
+              <div className="space-y-2 text-sm">
+                <AdminOnly
+                  fallback={
+                    <div className="flex items-center gap-2 text-red-600">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span>Admin Dashboard (Admin/Super Admin only)</span>
+                    </div>
+                  }
+                >
+                  <div className="text-green-600">
+                    ✅ Admin Dashboard (You have access!)
+                  </div>
+                </AdminOnly>
+
+                <EmployerOnly
+                  fallback={
+                    <div className="flex items-center gap-2 text-red-600">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span>Employer Dashboard (Employer only)</span>
+                    </div>
+                  }
+                >
+                  <div className="text-green-600">
+                    ✅ Employer Dashboard (You have access!)
+                  </div>
+                </EmployerOnly>
+
+                <UniversityOnly
+                  fallback={
+                    <div className="flex items-center gap-2 text-red-600">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span>University Dashboard (Professor/Staff only)</span>
+                    </div>
+                  }
+                >
+                  <div className="text-green-600">
+                    ✅ University Dashboard (You have access!)
+                  </div>
+                </UniversityOnly>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t pt-4">
+            <h4 className="font-medium mb-2">Test Access Control:</h4>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/dashboard/admin">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  Try Admin Dashboard
+                </Button>
+              </Link>
+              <Link href="/dashboard/employer">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  Try Employer Dashboard
+                </Button>
+              </Link>
+              <Link href="/dashboard/university">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  Try University Dashboard
+                </Button>
+              </Link>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Clicking these buttons will redirect you to the unauthorized page
+              since you don't have the required role.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {quickStats.map((stat, index) => (
@@ -204,25 +325,27 @@ export function StudentOverview() {
                       variant="secondary"
                       className="bg-emerald-100 text-emerald-700"
                     >
-                      {job.match}% Match
+                      {job.match}% match
                     </Badge>
                   </div>
+
                   <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
                     <span className="flex items-center gap-1">
-                      <MapPin className="w-4 h-4" />
+                      <MapPin className="w-3 h-3" />
                       {job.location}
                     </span>
                     <span className="flex items-center gap-1">
-                      <Clock className="w-4 h-4" />
+                      <Clock className="w-3 h-3" />
                       {job.posted}
                     </span>
                     <Badge variant="outline">{job.type}</Badge>
                   </div>
+
                   <div className="flex items-center justify-between">
-                    <div className="flex gap-2">
-                      {job.skills.map((skill, skillIndex) => (
+                    <div className="flex gap-1">
+                      {job.skills.map((skill) => (
                         <Badge
-                          key={skillIndex}
+                          key={skill}
                           variant="secondary"
                           className="text-xs"
                         >
@@ -231,7 +354,7 @@ export function StudentOverview() {
                       ))}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-emerald-600">
+                      <span className="font-medium text-emerald-600">
                         {job.salary}
                       </span>
                       <Button size="sm">Apply Now</Button>
@@ -239,6 +362,7 @@ export function StudentOverview() {
                   </div>
                 </div>
               ))}
+
               <Button variant="outline" className="w-full">
                 View All Job Recommendations
               </Button>
@@ -246,104 +370,71 @@ export function StudentOverview() {
           </Card>
         </div>
 
-        {/* Sidebar Content */}
+        {/* Sidebar */}
         <div className="space-y-6">
-          {/* Profile Completion */}
+          {/* Upcoming Events */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Profile Completion</CardTitle>
-              <CardDescription>
-                Complete your profile to get better matches
-              </CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5" />
+                Upcoming Events
+              </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>Overall Progress</span>
-                    <span>75%</span>
-                  </div>
-                  <Progress value={75} className="h-2" />
+            <CardContent className="space-y-4">
+              {upcomingEvents.map((event, index) => (
+                <div key={index} className="border-l-4 border-primary pl-4">
+                  <h4 className="font-medium">{event.title}</h4>
+                  <p className="text-sm text-muted-foreground">{event.date}</p>
+                  <p className="text-sm text-muted-foreground">{event.time}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {event.location}
+                  </p>
+                  <p className="text-xs text-emerald-600">
+                    {event.attendees} attendees
+                  </p>
                 </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                    <span>Basic Information</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                    <span>Skills & Experience</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
-                    <span className="text-muted-foreground">
-                      Portfolio Upload
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
-                    <span className="text-muted-foreground">
-                      Career Preferences
-                    </span>
-                  </div>
-                </div>
-                <Button size="sm" className="w-full">
-                  Complete Profile
-                </Button>
-              </div>
+              ))}
+              <Button variant="outline" size="sm" className="w-full">
+                View All Events
+              </Button>
             </CardContent>
           </Card>
 
           {/* Mentor Spotlight */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Featured Mentor</CardTitle>
-              <CardDescription>
-                Connect with industry professionals
-              </CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Mentor Spotlight
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-r from-primary to-accent rounded-full flex items-center justify-center text-white font-semibold">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center text-white font-semibold">
                     SC
                   </div>
                   <div>
-                    <h3 className="font-semibold">{mentorSpotlight.name}</h3>
+                    <h4 className="font-medium">{mentorSpotlight.name}</h4>
                     <p className="text-sm text-muted-foreground">
                       {mentorSpotlight.role}
                     </p>
                   </div>
                 </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>Experience:</span>
-                    <span className="font-medium">
-                      {mentorSpotlight.experience}
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                    <span className="text-sm">
+                      {mentorSpotlight.rating} ({mentorSpotlight.students}{" "}
+                      students)
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Rating:</span>
-                    <div className="flex items-center gap-1">
-                      <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                      <span className="font-medium">
-                        {mentorSpotlight.rating}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Students Mentored:</span>
-                    <span className="font-medium">
-                      {mentorSpotlight.students}
-                    </span>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Expertise:</p>
+
                   <div className="flex flex-wrap gap-1">
-                    {mentorSpotlight.expertise.map((skill, index) => (
+                    {mentorSpotlight.expertise.map((skill) => (
                       <Badge
-                        key={index}
+                        key={skill}
                         variant="secondary"
                         className="text-xs"
                       >
@@ -352,61 +443,54 @@ export function StudentOverview() {
                     ))}
                   </div>
                 </div>
+
                 <Button size="sm" className="w-full">
-                  Connect with Sarah
+                  Connect with Mentor
                 </Button>
               </div>
             </CardContent>
           </Card>
+
+          {/* Learning Progress */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5" />
+                Learning Progress
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <div className="flex justify-between text-sm mb-2">
+                  <span>JavaScript Fundamentals</span>
+                  <span>85%</span>
+                </div>
+                <Progress value={85} className="h-2" />
+              </div>
+
+              <div>
+                <div className="flex justify-between text-sm mb-2">
+                  <span>React Development</span>
+                  <span>60%</span>
+                </div>
+                <Progress value={60} className="h-2" />
+              </div>
+
+              <div>
+                <div className="flex justify-between text-sm mb-2">
+                  <span>Career Skills</span>
+                  <span>90%</span>
+                </div>
+                <Progress value={90} className="h-2" />
+              </div>
+
+              <Button variant="outline" size="sm" className="w-full">
+                View Learning Path
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
-
-      {/* Upcoming Events */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="w-5 h-5" />
-            Upcoming Events & Opportunities
-          </CardTitle>
-          <CardDescription>
-            Don't miss these career-building events
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-3 gap-4">
-            {upcomingEvents.map((event, index) => (
-              <div
-                key={index}
-                className="border rounded-lg p-4 hover:shadow-md transition-shadow"
-              >
-                <h3 className="font-semibold mb-2">{event.title}</h3>
-                <div className="space-y-1 text-sm text-muted-foreground mb-3">
-                  <p className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    {event.date}
-                  </p>
-                  <p className="flex items-center gap-1">
-                    <Clock className="w-4 h-4" />
-                    {event.time}
-                  </p>
-                  <p className="flex items-center gap-1">
-                    <MapPin className="w-4 h-4" />
-                    {event.location}
-                  </p>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    {event.attendees} attending
-                  </span>
-                  <Button size="sm" variant="outline">
-                    Register
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

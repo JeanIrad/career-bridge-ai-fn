@@ -41,12 +41,12 @@ export default function AdminDashboard() {
       icon: BarChart3,
       content: <AdminAnalytics />,
     },
-    {
-      id: "data",
-      label: "Data Management",
-      icon: Database,
-      content: <AdminData />,
-    },
+    // {
+    //   id: "data",
+    //   label: "Data Management",
+    //   icon: Database,
+    //   content: <AdminData />,
+    // },
     {
       id: "security",
       label: "Security",
