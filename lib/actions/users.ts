@@ -79,6 +79,12 @@ export interface UserStats {
     employers: number;
     professors: number;
   };
+  genderDistribution: {
+    male: number;
+    female: number;
+    other: number;
+    notSpecified: number;
+  };
   activeUsers: number;
   verificationRate: number;
 }
@@ -293,6 +299,52 @@ export const useDeletedUsers = (params: PaginationParams) => {
   });
 };
 
+/**
+ * Fetch recent users (Admin only)
+ */
+export const useRecentUsers = (limit: number = 10) => {
+  return useQuery({
+    queryKey: ["users", "recent", limit],
+    queryFn: async (): Promise<UserProfile[]> => {
+      try {
+        const response = await api.get("/users/admin/recent", {
+          params: { limit },
+        });
+        return response.data.data;
+      } catch (error: any) {
+        console.error("Error fetching recent users:", error);
+        throw error;
+      }
+    },
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 5 * 60 * 1000, // 5 minutes
+  });
+};
+
+/**
+ * Fetch users pending verification (Admin only)
+ */
+export const usePendingVerificationUsers = (limit: number = 10) => {
+  return useQuery({
+    queryKey: ["users", "pending-verification", limit],
+    queryFn: async (): Promise<UserProfile[]> => {
+      try {
+        const response = await api.get("/users/admin/pending-verification", {
+          params: { limit },
+        });
+        return response.data.data;
+      } catch (error: any) {
+        console.error("Error fetching pending verification users:", error);
+        throw error;
+      }
+    },
+    staleTime: 30 * 1000, // 30 seconds (more frequent updates for pending items)
+    gcTime: 2 * 60 * 1000, // 2 minutes
+    refetchInterval: 60 * 1000, // Auto-refresh every minute
+    refetchIntervalInBackground: true,
+  });
+};
+
 // ============= RECOMMENDATIONS =============
 
 /**
@@ -414,7 +466,7 @@ const flattenSearchParams = (params: UserSearchParams) => {
     sortOrder: params.sortOrder || "desc",
   };
 
-  // Add all filter parameters directly at the top level
+  // Add all filter parameters directly at the top level (not nested under filters)
   if (params.filters) {
     // Text search
     if (params.filters.search && params.filters.search.trim() !== "") {
@@ -426,7 +478,7 @@ const flattenSearchParams = (params: UserSearchParams) => {
       apiParams.roles = params.filters.roles;
     }
 
-    // Verification status
+    // Verification status - FLATTEN TO ROOT LEVEL
     if (params.filters.isVerified !== undefined) {
       apiParams.isVerified = params.filters.isVerified;
     }
@@ -499,8 +551,11 @@ const flattenSearchParams = (params: UserSearchParams) => {
     }
   }
 
-  // Log for debugging
-  console.log("Flattened API Parameters:", apiParams);
+  // Log for debugging - should show flat parameters now
+  console.log(
+    "Flattened API Parameters (should be flat, not nested):",
+    apiParams
+  );
 
   return apiParams;
 };

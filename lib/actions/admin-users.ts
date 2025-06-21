@@ -122,29 +122,24 @@ export const usePendingVerificationUsers = (params: UserSearchParams = {}) => {
     queryKey: ["admin", "users", "pending-verification", params],
     queryFn: async (): Promise<PaginatedUsersResponse> => {
       try {
-        // Build API parameters in the structure the backend expects
+        // Build flat API parameters in the structure the backend expects
         const apiParams: any = {
           page: params.page || 1,
           limit: params.limit || 10,
           sortBy: params.sortBy || "createdAt",
           sortOrder: params.sortOrder || "desc",
-        };
-
-        // Build the filters object with unverified filter
-        const filters: any = {
+          // Flatten isVerified to root level (not nested under filters)
           isVerified: false,
         };
 
-        // Add other filters if they exist
+        // Add other filters at the root level if they exist
         if (params.filters?.search) {
-          filters.search = params.filters.search;
+          apiParams.search = params.filters.search;
         }
 
         if (params.filters?.roles && params.filters.roles.length > 0) {
-          filters.roles = params.filters.roles;
+          apiParams.roles = params.filters.roles;
         }
-
-        apiParams.filters = filters;
 
         const response = await api.get("/users/search", { params: apiParams });
         return response.data;
@@ -169,22 +164,14 @@ export const useRecentUsers = (days: number = 7, limit: number = 10) => {
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - days);
 
-        // Build API parameters in the structure the backend expects
+        // Build flat API parameters in the structure the backend expects
         const apiParams: any = {
           limit,
           sortBy: "createdAt",
           sortOrder: "desc",
+          // Note: Date range filtering would need backend support
+          // For now, we'll get recent users via sorting
         };
-
-        // Add date range filters
-        const filters: any = {
-          // Note: We'd need to check if the backend supports date range filters
-          // For now, we'll just use basic sorting
-        };
-
-        if (Object.keys(filters).length > 0) {
-          apiParams.filters = filters;
-        }
 
         const response = await api.get("/users/search", { params: apiParams });
         return response.data.data;
@@ -282,7 +269,7 @@ export const useSuspendUser = () => {
 };
 
 /**
- * Activate a user account (Admin only)
+ * Activate a user account
  */
 export const useActivateUser = () => {
   const queryClient = useQueryClient();
@@ -300,17 +287,60 @@ export const useActivateUser = () => {
       }
     },
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["users"] });
+      // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
-      queryClient.invalidateQueries({
-        queryKey: ["users", "profile", variables.userId],
-      });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
 
       toast.success("User activated successfully", toastSuccessStyles);
     },
     onError: (error: any) => {
       const errorMessage =
         error.response?.data?.message || "Failed to activate user";
+      toast.error(errorMessage, toastErrorStyles);
+    },
+  });
+};
+
+/**
+ * Verify or unverify a user (Admin only)
+ */
+export const useVerifyUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: {
+      userId: string;
+      isVerified: boolean;
+      verificationNote?: string;
+    }) => {
+      try {
+        const response = await api.patch(`/users/${params.userId}/verify`, {
+          isVerified: params.isVerified,
+          verificationNote: params.verificationNote,
+        });
+        return response.data;
+      } catch (error: any) {
+        console.error("Error verifying user:", error);
+        throw error;
+      }
+    },
+    onSuccess: (data, variables) => {
+      // Invalidate relevant queries
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({
+        queryKey: ["admin", "users", "pending-verification"],
+      });
+
+      toast.success(
+        `User ${variables.isVerified ? "verified" : "unverified"} successfully`,
+        toastSuccessStyles
+      );
+    },
+    onError: (error: any) => {
+      const errorMessage =
+        error.response?.data?.message ||
+        "Failed to update user verification status";
       toast.error(errorMessage, toastErrorStyles);
     },
   });

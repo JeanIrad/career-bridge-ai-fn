@@ -78,6 +78,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
     firstName: "",
     lastName: "",
     phoneNumber: "",
+    gender: "",
     role: "",
 
     // Location Information
@@ -153,6 +154,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
         firstName: "",
         lastName: "",
         phoneNumber: "",
+        gender: "",
         role: "",
         country: "",
         countryCode: "",
@@ -366,6 +368,11 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
     // Phone number - only add if not empty
     if (formData.phoneNumber && formData.phoneNumber.trim()) {
       payload.phoneNumber = formData.phoneNumber;
+    }
+
+    // Gender - only add if selected
+    if (formData.gender && formData.gender.trim()) {
+      payload.gender = formData.gender;
     }
 
     // ZIP code - only add if not empty
@@ -624,6 +631,25 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
                     {phoneError && (
                       <p className="text-sm text-red-600 mt-1">{phoneError}</p>
                     )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="gender" className="text-sm font-medium">
+                      Gender (Optional)
+                    </Label>
+                    <Select
+                      onValueChange={(value) =>
+                        handleInputChange("gender", value)
+                      }
+                      value={formData.gender}
+                    >
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder="Select gender" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="MALE">Male</SelectItem>
+                        <SelectItem value="FEMALE">Female</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
