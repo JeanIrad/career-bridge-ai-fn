@@ -21,8 +21,19 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { getStoredUser } from "@/lib/auth-utils";
+import { useUserStats } from "@/lib/actions/users";
 
 export default function AdminDashboard() {
+  const user = getStoredUser();
+
+  // Get real-time user statistics with automatic refresh every 30 seconds
+  const { data: userStats, isLoading: statsLoading } = useUserStats();
+
+  // Calculate pending verifications (total users minus verified users)
+  const pendingVerifications = userStats
+    ? userStats.totalUsers - userStats.verifiedUsers
+    : 0;
+
   const tabs = [
     {
       id: "overview",
@@ -34,7 +45,7 @@ export default function AdminDashboard() {
       id: "users",
       label: "User Management",
       icon: Users,
-      badge: "2,547",
+      badge: statsLoading ? "..." : userStats?.totalUsers?.toString() || "0",
       content: <AdminUsers />,
     },
     {
@@ -59,7 +70,7 @@ export default function AdminDashboard() {
       id: "moderation",
       label: "Content Moderation",
       icon: MessageCircle,
-      badge: "15",
+      badge: statsLoading ? "..." : pendingVerifications.toString(),
       content: <AdminModeration />,
     },
     {
@@ -75,7 +86,6 @@ export default function AdminDashboard() {
       content: <AdminSettings />,
     },
   ];
-  const user = getStoredUser();
 
   return (
     <AdminDashboardGuard>

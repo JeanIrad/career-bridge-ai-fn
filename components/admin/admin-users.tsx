@@ -129,6 +129,7 @@ export function AdminUsers() {
     deactivate: false,
     delete: false,
     unverify: false,
+    createUser: false,
   });
 
   // Debounce search input with 500ms delay
@@ -352,6 +353,7 @@ export function AdminUsers() {
       deactivate: false,
       delete: false,
       unverify: false,
+      createUser: false,
     });
     setSelectedUser(null);
   };
@@ -486,7 +488,13 @@ export function AdminUsers() {
             <Filter className="w-4 h-4 mr-2" />
             {showFilters ? "Hide Filters" : "Show Filters"}
           </Button>
-          <CreateUserModal />
+          <Button
+            onClick={() => setModals((prev) => ({ ...prev, createUser: true }))}
+            className="bg-primary hover:bg-primary/90"
+          >
+            <UserPlus className="w-4 h-4 mr-2" />
+            Create User
+          </Button>
           <Button variant="outline" onClick={handleRefresh}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
@@ -531,9 +539,17 @@ export function AdminUsers() {
                     <p className="text-sm font-medium text-muted-foreground">
                       Total Users
                     </p>
-                    <p className="text-2xl font-bold">{userStats.totalUsers}</p>
+                    <p className="text-2xl font-bold">
+                      {userStats?.totalUsers || 0}
+                    </p>
                     <p className="text-xs text-emerald-600">
-                      {userStats.verificationRate.toFixed(1)}% verified
+                      {userStats && userStats.totalUsers > 0
+                        ? (
+                            (userStats.verifiedUsers / userStats.totalUsers) *
+                            100
+                          ).toFixed(1)
+                        : 0}
+                      % verified
                     </p>
                   </div>
                   <Users className="w-8 h-8 text-primary" />
@@ -548,13 +564,15 @@ export function AdminUsers() {
                       Active Users
                     </p>
                     <p className="text-2xl font-bold">
-                      {userStats.activeUsers}
+                      {userStats?.activeUsers || 0}
                     </p>
                     <p className="text-xs text-emerald-600">
-                      {(
-                        (userStats.activeUsers / userStats.totalUsers) *
-                        100
-                      ).toFixed(1)}
+                      {userStats && userStats.totalUsers > 0
+                        ? (
+                            (userStats.activeUsers / userStats.totalUsers) *
+                            100
+                          ).toFixed(1)
+                        : 0}
                       % active
                     </p>
                   </div>
@@ -570,10 +588,15 @@ export function AdminUsers() {
                       Verified Users
                     </p>
                     <p className="text-2xl font-bold">
-                      {userStats.verifiedUsers}
+                      {userStats?.verifiedUsers || 0}
                     </p>
                     <p className="text-xs text-emerald-600">
-                      {userStats.totalUsers - userStats.verifiedUsers} pending
+                      {userStats &&
+                      userStats.totalUsers &&
+                      userStats.verifiedUsers
+                        ? userStats.totalUsers - userStats.verifiedUsers
+                        : 0}{" "}
+                      pending
                     </p>
                   </div>
                   <UserCheck className="w-8 h-8 text-primary" />
@@ -588,10 +611,10 @@ export function AdminUsers() {
                       Students
                     </p>
                     <p className="text-2xl font-bold">
-                      {userStats.roleDistribution.students}
+                      {userStats?.roleDistribution?.students || 0}
                     </p>
                     <p className="text-xs text-emerald-600">
-                      Alumni: {userStats.roleDistribution.alumni}
+                      Alumni: {userStats?.roleDistribution?.alumni || 0}
                     </p>
                   </div>
                   <GraduationCap className="w-8 h-8 text-primary" />
@@ -913,6 +936,11 @@ export function AdminUsers() {
         onClose={() => closeModal("unverify")}
         onConfirm={handleUnverifyUser}
         isLoading={verifyUserMutation.isPending}
+      />
+
+      <CreateUserModal
+        isOpen={modals.createUser}
+        onClose={() => closeModal("createUser")}
       />
     </div>
   );

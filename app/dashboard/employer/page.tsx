@@ -20,8 +20,12 @@ import {
   BarChart3,
   GraduationCap,
 } from "lucide-react";
+import { useUserStats } from "@/lib/actions/users";
 
 export default function EmployerDashboard() {
+  // Get real-time user statistics
+  const { data: userStats, isLoading: statsLoading } = useUserStats();
+
   const tabs = [
     {
       id: "overview",
@@ -33,14 +37,15 @@ export default function EmployerDashboard() {
       id: "jobs",
       label: "Job Postings",
       icon: Briefcase,
-      badge: "8",
       content: <EmployerJobs />,
     },
     {
       id: "candidates",
       label: "Candidates",
       icon: Users,
-      badge: "156",
+      badge: statsLoading
+        ? "..."
+        : userStats?.roleDistribution?.students?.toString() || "0",
       content: <EmployerCandidates />,
     },
     {
@@ -53,7 +58,6 @@ export default function EmployerDashboard() {
       id: "messages",
       label: "Messages",
       icon: MessageCircle,
-      badge: "12",
       content: <EmployerMessages />,
     },
     {

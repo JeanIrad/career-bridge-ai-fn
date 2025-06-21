@@ -1,12 +1,19 @@
 // Authentication utility functions
 
 export const TOKEN_KEY = "careerBridgeAIToken";
+export const REFRESH_TOKEN_KEY = "careerBridgeAIRefreshToken";
 export const USER_KEY = "user";
 
 // Get token from localStorage
 export const getToken = (): string | null => {
   if (typeof window === "undefined") return null;
   return localStorage.getItem(TOKEN_KEY);
+};
+
+// Get refresh token from localStorage
+export const getRefreshToken = (): string | null => {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
 };
 
 // Get token from cookies
@@ -38,16 +45,47 @@ export const setToken = (token: string, rememberMe: boolean = false): void => {
   document.cookie = `${TOKEN_KEY}=${encodeURIComponent(token)};expires=${expires.toUTCString()};path=/;SameSite=Strict${secure ? ";Secure" : ""}`;
 };
 
+// Set refresh token in localStorage and cookies
+export const setRefreshToken = (
+  refreshToken: string,
+  rememberMe: boolean = false
+): void => {
+  if (typeof window === "undefined") return;
+
+  // Set in localStorage
+  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+
+  // Set in cookies for middleware access
+  const days = rememberMe ? 30 : 7; // 30 days if remember me, 7 days otherwise
+  const expires = new Date();
+  expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+  const secure = window.location.protocol === "https:";
+
+  document.cookie = `${REFRESH_TOKEN_KEY}=${encodeURIComponent(refreshToken)};expires=${expires.toUTCString()};path=/;SameSite=Strict${secure ? ";Secure" : ""}`;
+};
+
+// Set both tokens together
+export const setTokens = (
+  accessToken: string,
+  refreshToken: string,
+  rememberMe: boolean = false
+): void => {
+  setToken(accessToken, rememberMe);
+  setRefreshToken(refreshToken, rememberMe);
+};
+
 // Remove token from localStorage and cookies
 export const removeToken = (): void => {
   if (typeof window === "undefined") return;
 
   // Remove from localStorage
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
 
   // Remove from cookies
   document.cookie = `${TOKEN_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+  document.cookie = `${REFRESH_TOKEN_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
   document.cookie = `${USER_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
 };
 

@@ -41,21 +41,18 @@ export default function StudentDashboard() {
       id: "jobs",
       label: "Job Search",
       icon: Briefcase,
-      badge: "247",
       content: <StudentJobs />,
     },
     {
       id: "internships",
       label: "Internships",
       icon: GraduationCap,
-      badge: "89",
       content: <StudentInternships />,
     },
     {
       id: "events",
       label: "Career Events",
       icon: Calendar,
-      badge: "12",
       content: <StudentEvents />,
     },
     {
@@ -80,7 +77,6 @@ export default function StudentDashboard() {
       id: "messages",
       label: "Messages",
       icon: MessageCircle,
-      badge: "5",
       content: <StudentMessages />,
     },
   ];

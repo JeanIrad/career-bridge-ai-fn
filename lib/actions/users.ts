@@ -266,8 +266,10 @@ export const useUserStats = () => {
         throw error;
       }
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 30 * 1000, // 30 seconds
     gcTime: 5 * 60 * 1000, // 5 minutes
+    refetchInterval: 30 * 1000, // Auto-refresh every 30 seconds
+    refetchIntervalInBackground: true, // Continue refreshing when tab is not active
   });
 };
 

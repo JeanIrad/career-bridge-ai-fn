@@ -1,63 +1,95 @@
 "use client";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+  DialogDescription,
+} from "../ui/dialog";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Textarea } from "../ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
+} from "../ui/select";
+import { Checkbox } from "../ui/checkbox";
+import { Badge } from "../ui/badge";
+import { Separator } from "../ui/separator";
 import {
   UserPlus,
   Building2,
-  School,
   Mail,
   Phone,
   MapPin,
   Globe,
-  Users,
-  X,
+  User,
+  GraduationCap,
+  Briefcase,
   Shield,
+  X,
+  Plus,
+  Loader2,
 } from "lucide-react";
+import { useCreateUser } from "../../lib/actions/admin-users";
 import { toast } from "sonner";
-// import { useToast } from "@/hooks/use-toast";
+import EnhancedCountrySelect from "../ui/enhanced-country-select";
+import EnhancedPhoneInput from "../ui/enhanced-phone-input";
+import classNames from "classnames";
+import Flag from "react-world-flags";
+import { getData } from "country-list";
+import PhoneInput from "react-phone-input-2";
 
-interface CreateUserModalProps {
-  trigger?: React.ReactNode;
+interface LocationData {
+  country: string;
+  city: string;
+  region: string;
+  timezone: string;
+  ip: string;
 }
 
-export function CreateUserModal({ trigger }: CreateUserModalProps) {
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [userType, setUserType] = useState<
-    "employer" | "university" | "admin" | ""
-  >("");
-  const [skills, setSkills] = useState<string[]>([]);
-  const [currentSkill, setCurrentSkill] = useState("");
-  // const { toast } = useToast();
+interface CreateUserModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
 
+export const CreateUserModal: React.FC<CreateUserModalProps> = ({
+  isOpen,
+  onClose,
+}) => {
+  const createUserMutation = useCreateUser();
+
+  // Form state
+  const [userType, setUserType] = useState<string>("");
+  const [currentSkill, setCurrentSkill] = useState("");
+  const [phoneError, setPhoneError] = useState<string>("");
+  const [detectedLocation, setDetectedLocation] = useState<LocationData | null>(
+    null
+  );
   const [formData, setFormData] = useState({
     // Basic Information
+    email: "",
     firstName: "",
     lastName: "",
-    email: "",
-    phone: "",
+    phoneNumber: "",
+    role: "",
+
+    // Location Information
+    country: "",
+    countryCode: "",
+    state: "",
+    city: "",
+    zipCode: "",
+
+    // IP Detection metadata
+    detectedFromIp: false,
+    ipAddress: "",
 
     // Organization Information
     organizationName: "",
@@ -66,226 +98,508 @@ export function CreateUserModal({ trigger }: CreateUserModalProps) {
     organizationSize: "",
     industry: "",
 
-    // Location
-    country: "",
-    state: "",
-    city: "",
-
     // Role & Permissions
     jobTitle: "",
     department: "",
-    sendWelcomeEmail: true,
-    requirePasswordReset: true,
 
     // University Specific
     universityType: "",
     accreditation: "",
+    university: "",
 
-    // Employer Specific
-    companyType: "",
-    foundedYear: "",
-    specializations: [] as string[],
+    // Enhanced Company Fields for Employers
+    companyName: "",
+    companyType: "Private",
+    foundedYear: new Date().getFullYear(),
+    companyDescription: "",
+    companyWebsite: "",
+    companyIndustry: "",
+    companySize: "",
+    companyAddress: "",
+    companyCity: "",
+    companyState: "",
+    companyCountry: "",
+    companyPhone: "",
+    companyEmail: "",
+    companyLinkedIn: "",
+    companyTwitter: "",
+    companyFacebook: "",
+    createCompany: false,
 
     // Admin Specific
     adminLevel: "",
     permissions: [] as string[],
+
+    // Account Settings
+    sendWelcomeEmail: true,
+    requirePasswordReset: true,
+    isVerified: false,
+
+    // Student specific
+    major: "",
+    graduationYear: new Date().getFullYear() + 1,
+    headline: "",
+    bio: "",
+
+    // Specializations
+    specializations: [] as string[],
   });
 
-  const handleInputChange = (
-    field: string,
-    value: string | boolean | string[]
-  ) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const addSkill = () => {
-    if (currentSkill.trim() && !skills.includes(currentSkill.trim())) {
-      const newSkills = [...skills, currentSkill.trim()];
-      setSkills(newSkills);
-      handleInputChange("specializations", newSkills);
-      setCurrentSkill("");
-    }
-  };
-
-  const removeSkill = (skillToRemove: string) => {
-    const newSkills = skills.filter((skill) => skill !== skillToRemove);
-    setSkills(newSkills);
-    handleInputChange("specializations", newSkills);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      toast.success(
-        `${formData.firstName} ${formData.lastName} has been added as a ${userType}.`
-      );
-
-      // Reset form
+  // Reset form when modal opens/closes
+  useEffect(() => {
+    if (!isOpen) {
       setFormData({
+        email: "",
         firstName: "",
         lastName: "",
-        email: "",
-        phone: "",
+        phoneNumber: "",
+        role: "",
+        country: "",
+        countryCode: "",
+        state: "",
+        city: "",
+        zipCode: "",
+        detectedFromIp: false,
+        ipAddress: "",
         organizationName: "",
         organizationWebsite: "",
         organizationDescription: "",
         organizationSize: "",
         industry: "",
-        country: "",
-        state: "",
-        city: "",
         jobTitle: "",
         department: "",
-        sendWelcomeEmail: true,
-        requirePasswordReset: true,
         universityType: "",
         accreditation: "",
-        companyType: "",
-        foundedYear: "",
-        specializations: [],
+        university: "",
+        companyName: "",
+        companyType: "Private",
+        foundedYear: new Date().getFullYear(),
+        companyDescription: "",
+        companyWebsite: "",
+        companyIndustry: "",
+        companySize: "",
+        companyAddress: "",
+        companyCity: "",
+        companyState: "",
+        companyCountry: "",
+        companyPhone: "",
+        companyEmail: "",
+        companyLinkedIn: "",
+        companyTwitter: "",
+        companyFacebook: "",
+        createCompany: false,
         adminLevel: "",
         permissions: [],
+        sendWelcomeEmail: true,
+        requirePasswordReset: true,
+        isVerified: false,
+        major: "",
+        graduationYear: new Date().getFullYear() + 1,
+        headline: "",
+        bio: "",
+        specializations: [],
       });
-      setSkills([]);
       setUserType("");
-      setOpen(false);
-    } catch (error) {
-      toast.error("Failed to create user. Please try again.");
-    } finally {
-      setLoading(false);
+      setCurrentSkill("");
+      setPhoneError("");
+      setDetectedLocation(null);
+    }
+  }, [isOpen]);
+
+  // Update role when user type changes
+  useEffect(() => {
+    setFormData((prev) => ({ ...prev, role: userType }));
+
+    // Auto-enable company creation for employers
+    if (userType === "EMPLOYER") {
+      setFormData((prev) => ({ ...prev, createCompany: true }));
+    } else {
+      setFormData((prev) => ({ ...prev, createCompany: false }));
+    }
+  }, [userType]);
+
+  const handleInputChange = (field: string, value: any) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleCountryChange = (
+    country: string,
+    countryCode: string,
+    locationData?: LocationData
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      country,
+      countryCode,
+      detectedFromIp: !!locationData,
+      ipAddress: locationData?.ip || "",
+    }));
+
+    if (locationData) {
+      setDetectedLocation(locationData);
+      setFormData((prev) => ({
+        ...prev,
+        city: locationData.city,
+        state: locationData.region,
+      }));
     }
   };
 
-  const defaultTrigger = (
-    <Button>
-      <UserPlus className="w-4 h-4 mr-2" />
-      Create User
-    </Button>
-  );
+  const handlePhoneChange = (phone: string, country?: any) => {
+    setFormData((prev) => ({
+      ...prev,
+      phoneNumber: phone,
+      countryCode: country?.countryCode?.toUpperCase() || prev.countryCode,
+    }));
+
+    // Validate phone number
+    validatePhoneNumber(phone);
+  };
+
+  const validatePhoneNumber = (phone: string) => {
+    setPhoneError("");
+
+    if (!phone) {
+      // Phone is optional, so empty is valid
+      return;
+    }
+
+    // Remove all non-digit characters except +
+    const cleanPhone = phone.replace(/[^\d+]/g, "");
+
+    // Check if it matches the international format
+    const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+
+    if (!phoneRegex.test(cleanPhone)) {
+      setPhoneError(
+        "Please enter a valid phone number with country code (e.g., +250787308777)"
+      );
+      return;
+    }
+
+    // Check specific length constraints
+    if (cleanPhone.length < 8) {
+      setPhoneError("Phone number is too short");
+      return;
+    }
+
+    if (cleanPhone.length > 16) {
+      setPhoneError("Phone number is too long");
+      return;
+    }
+
+    // Rwanda specific validation (+250 followed by 9 digits)
+    if (cleanPhone.startsWith("+250") && cleanPhone.length !== 13) {
+      setPhoneError(
+        "Rwandan phone numbers should be 13 digits including +250 (e.g., +250787308777)"
+      );
+      return;
+    }
+
+    setPhoneError("");
+  };
+
+  const handleCompanyCountryChange = (
+    country: string,
+    countryCode: string,
+    locationData?: LocationData
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      companyCountry: country,
+    }));
+  };
+
+  const addSpecialization = () => {
+    if (
+      currentSkill.trim() &&
+      !formData.specializations.includes(currentSkill.trim())
+    ) {
+      setFormData((prev) => ({
+        ...prev,
+        specializations: [...prev.specializations, currentSkill.trim()],
+      }));
+      setCurrentSkill("");
+    }
+  };
+
+  const removeSpecialization = (skill: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      specializations: prev.specializations.filter((s) => s !== skill),
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!userType) {
+      toast.error("Please select a user type");
+      return;
+    }
+
+    // Check for phone validation errors
+    if (phoneError) {
+      toast.error("Please fix the phone number error before submitting");
+      return;
+    }
+
+    // Build payload based on user type
+    const basePayload = {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      role: userType,
+      // Location fields
+      country: formData.country,
+      state: formData.state,
+      city: formData.city,
+      // Account settings
+      sendWelcomeEmail: formData.sendWelcomeEmail,
+      requirePasswordReset: formData.requirePasswordReset,
+      isVerified: formData.isVerified,
+    };
+
+    // Add optional fields only if they have values
+    const payload: any = { ...basePayload };
+
+    // Phone number - only add if not empty
+    if (formData.phoneNumber && formData.phoneNumber.trim()) {
+      payload.phoneNumber = formData.phoneNumber;
+    }
+
+    // ZIP code - only add if not empty
+    if (formData.zipCode && formData.zipCode.trim()) {
+      payload.zipCode = formData.zipCode;
+    }
+
+    // Add user type specific fields
+    if (userType === "EMPLOYER") {
+      // Add the createCompany flag
+      payload.createCompany = formData.createCompany;
+
+      // Only add company fields if creating company profile
+      if (formData.createCompany) {
+        if (formData.companyName) payload.companyName = formData.companyName;
+        if (formData.companyType) payload.companyType = formData.companyType;
+        if (formData.companyIndustry)
+          payload.companyIndustry = formData.companyIndustry;
+        if (formData.companySize) payload.companySize = formData.companySize;
+        if (formData.companyDescription)
+          payload.companyDescription = formData.companyDescription;
+        if (formData.companyCountry)
+          payload.companyCountry = formData.companyCountry;
+        if (formData.companyCity) payload.companyCity = formData.companyCity;
+        if (formData.companyState) payload.companyState = formData.companyState;
+        if (formData.companyAddress)
+          payload.companyAddress = formData.companyAddress;
+
+        // Optional company fields - only add if not empty and valid
+        if (
+          formData.companyWebsite &&
+          formData.companyWebsite.trim() &&
+          formData.companyWebsite.startsWith("http")
+        ) {
+          payload.companyWebsite = formData.companyWebsite;
+        }
+        if (
+          formData.companyEmail &&
+          formData.companyEmail.trim() &&
+          formData.companyEmail.includes("@")
+        ) {
+          payload.companyEmail = formData.companyEmail;
+        }
+        if (formData.companyPhone && formData.companyPhone.trim()) {
+          payload.companyPhone = formData.companyPhone;
+        }
+        if (
+          formData.companyLinkedIn &&
+          formData.companyLinkedIn.trim() &&
+          formData.companyLinkedIn.startsWith("http")
+        ) {
+          payload.companyLinkedIn = formData.companyLinkedIn;
+        }
+        if (
+          formData.companyTwitter &&
+          formData.companyTwitter.trim() &&
+          formData.companyTwitter.startsWith("http")
+        ) {
+          payload.companyTwitter = formData.companyTwitter;
+        }
+        if (
+          formData.companyFacebook &&
+          formData.companyFacebook.trim() &&
+          formData.companyFacebook.startsWith("http")
+        ) {
+          payload.companyFacebook = formData.companyFacebook;
+        }
+        if (
+          formData.foundedYear &&
+          formData.foundedYear !== new Date().getFullYear()
+        ) {
+          payload.foundedYear = parseInt(formData.foundedYear.toString(), 10);
+        }
+      }
+
+      // Employer specific fields
+      if (formData.specializations && formData.specializations.length > 0) {
+        payload.specializations = formData.specializations;
+      }
+    } else if (userType === "PROFESSOR" || userType === "UNIVERSITY_STAFF") {
+      // University fields
+      if (formData.university) payload.university = formData.university;
+      if (formData.department) payload.department = formData.department;
+      if (formData.jobTitle) payload.jobTitle = formData.jobTitle;
+    } else if (userType === "ADMIN") {
+      // Admin fields
+      if (formData.adminLevel) payload.adminLevel = formData.adminLevel;
+      if (formData.permissions && formData.permissions.length > 0) {
+        payload.permissions = formData.permissions;
+      }
+    }
+
+    try {
+      console.log("Submitting user creation with payload:", payload);
+      console.log("User type:", userType);
+      console.log("Create company flag:", formData.createCompany);
+
+      await createUserMutation.mutateAsync(payload);
+      toast.success("User created successfully!");
+      onClose();
+    } catch (error: any) {
+      console.error("Failed to create user:", error);
+      const errorMessage = error?.response?.data?.message;
+      if (Array.isArray(errorMessage)) {
+        toast.error(`Validation errors: ${errorMessage.join(", ")}`);
+      } else {
+        toast.error(errorMessage || "Failed to create user");
+      }
+    }
+  };
+
+  const isLoading = createUserMutation.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger || defaultTrigger}</DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <UserPlus className="w-5 h-5" />
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-7xl max-h-[98vh] overflow-y-auto">
+        <DialogHeader className="space-y-3">
+          <DialogTitle className="flex items-center gap-2 text-xl">
+            <UserPlus className="w-6 h-6" />
             Create New User Account
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-base">
             Create accounts for employers, university staff, or administrators.
             Students can register themselves through the public registration.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-8">
           {/* User Type Selection */}
-          <div className="space-y-3">
-            <Label className="text-base font-semibold">Account Type *</Label>
-            <div className="grid grid-cols-3 gap-4">
-              <div
-                className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                  userType === "employer"
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/50"
-                }`}
-                onClick={() => setUserType("employer")}
-              >
-                <div className="flex items-center gap-3">
-                  <Building2 className="w-6 h-6 text-primary" />
-                  <div>
-                    <h3 className="font-semibold">Employer Account</h3>
-                    <p className="text-sm text-muted-foreground">
-                      For company representatives and recruiters
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div
-                className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                  userType === "university"
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/50"
-                }`}
-                onClick={() => setUserType("university")}
-              >
-                <div className="flex items-center gap-3">
-                  <School className="w-6 h-6 text-primary" />
-                  <div>
-                    <h3 className="font-semibold">University Staff</h3>
-                    <p className="text-sm text-muted-foreground">
-                      For university administrators and career services
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div
-                className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                  userType === "admin"
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/50"
-                }`}
-                onClick={() => setUserType("admin")}
-              >
-                <div className="flex items-center gap-3">
-                  <Shield className="w-6 h-6 text-primary" />
-                  <div>
-                    <h3 className="font-semibold">Administrator</h3>
-                    <p className="text-sm text-muted-foreground">
-                      For system administrators and platform managers
-                    </p>
-                  </div>
-                </div>
-              </div>
+          <div className="space-y-5">
+            <Label className="text-lg font-semibold border-b pb-3 block">
+              Select User Type *
+            </Label>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                {
+                  value: "EMPLOYER",
+                  label: "Employer",
+                  icon: Briefcase,
+                  color: "bg-blue-50 border-blue-200 text-blue-700",
+                },
+                {
+                  value: "PROFESSOR",
+                  label: "Professor",
+                  icon: GraduationCap,
+                  color: "bg-green-50 border-green-200 text-green-700",
+                },
+                {
+                  value: "UNIVERSITY_STAFF",
+                  label: "University Staff",
+                  icon: Building2,
+                  color: "bg-purple-50 border-purple-200 text-purple-700",
+                },
+                {
+                  value: "ADMIN",
+                  label: "Administrator",
+                  icon: Shield,
+                  color: "bg-orange-50 border-orange-200 text-orange-700",
+                },
+              ].map((type) => {
+                const Icon = type.icon;
+                return (
+                  <button
+                    key={type.value}
+                    type="button"
+                    onClick={() => setUserType(type.value)}
+                    className={classNames(
+                      "p-3 border-2 rounded-lg transition-all duration-200 hover:shadow-md text-center",
+                      userType === type.value
+                        ? `${type.color} border-current shadow-md`
+                        : "border-gray-200 hover:border-gray-300"
+                    )}
+                  >
+                    <Icon className="w-7 h-7 mx-auto mb-2" />
+                    <div className="font-medium text-xs leading-tight">
+                      {type.label}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {userType && (
             <>
-              {/* Personal Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">
-                  Personal Information
+              {/* Basic Information */}
+              <div className="space-y-5">
+                <h3 className="text-lg font-semibold border-b pb-3 flex items-center gap-2">
+                  <User className="w-5 h-5" />
+                  Basic Information
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="firstName">First Name *</Label>
-                    <Input
-                      id="firstName"
-                      value={formData.firstName}
-                      onChange={(e) =>
-                        handleInputChange("firstName", e.target.value)
-                      }
-                      placeholder="Enter first name"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">Last Name *</Label>
-                    <Input
-                      id="lastName"
-                      value={formData.lastName}
-                      onChange={(e) =>
-                        handleInputChange("lastName", e.target.value)
-                      }
-                      placeholder="Enter last name"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email Address *</Label>
+                    <Label htmlFor="firstName" className="text-sm font-medium">
+                      First Name *
+                    </Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        id="firstName"
+                        value={formData.firstName}
+                        onChange={(e) =>
+                          handleInputChange("firstName", e.target.value)
+                        }
+                        placeholder="Enter first name"
+                        className="pl-10 h-11"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName" className="text-sm font-medium">
+                      Last Name *
+                    </Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        id="lastName"
+                        value={formData.lastName}
+                        onChange={(e) =>
+                          handleInputChange("lastName", e.target.value)
+                        }
+                        placeholder="Enter last name"
+                        className="pl-10 h-11"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-sm font-medium">
+                      Email Address *
+                    </Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <Input
                         id="email"
                         type="email"
@@ -294,404 +608,61 @@ export function CreateUserModal({ trigger }: CreateUserModalProps) {
                           handleInputChange("email", e.target.value)
                         }
                         placeholder="Enter email address"
-                        className="pl-10"
+                        className="pl-10 h-11"
                         required
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="phone"
-                        value={formData.phone}
-                        onChange={(e) =>
-                          handleInputChange("phone", e.target.value)
-                        }
-                        placeholder="Enter phone number"
-                        className="pl-10"
-                      />
-                    </div>
+                    <EnhancedPhoneInput
+                      label="Phone Number (Optional)"
+                      value={formData.phoneNumber}
+                      onChange={handlePhoneChange}
+                      placeholder="Enter phone number"
+                      autoDetectCountry={true}
+                    />
+                    {phoneError && (
+                      <p className="text-sm text-red-600 mt-1">{phoneError}</p>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Organization Information (for employer and university) */}
-              {(userType === "employer" || userType === "university") && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold border-b pb-2">
-                    {userType === "employer" ? "Company" : "University"}{" "}
-                    Information
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="organizationName">
-                        {userType === "employer" ? "Company" : "University"}{" "}
-                        Name *
-                      </Label>
-                      <Input
-                        id="organizationName"
-                        value={formData.organizationName}
-                        onChange={(e) =>
-                          handleInputChange("organizationName", e.target.value)
-                        }
-                        placeholder={`Enter ${userType === "employer" ? "company" : "university"} name`}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="organizationWebsite">Website</Label>
-                      <div className="relative">
-                        <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="organizationWebsite"
-                          value={formData.organizationWebsite}
-                          onChange={(e) =>
-                            handleInputChange(
-                              "organizationWebsite",
-                              e.target.value
-                            )
-                          }
-                          placeholder="https://example.com"
-                          className="pl-10"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {userType === "employer" && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="industry">Industry *</Label>
-                        <Select
-                          onValueChange={(value) =>
-                            handleInputChange("industry", value)
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select industry" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="technology">
-                              Technology
-                            </SelectItem>
-                            <SelectItem value="finance">Finance</SelectItem>
-                            <SelectItem value="healthcare">
-                              Healthcare
-                            </SelectItem>
-                            <SelectItem value="education">Education</SelectItem>
-                            <SelectItem value="manufacturing">
-                              Manufacturing
-                            </SelectItem>
-                            <SelectItem value="retail">Retail</SelectItem>
-                            <SelectItem value="consulting">
-                              Consulting
-                            </SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="companyType">Company Type</Label>
-                        <Select
-                          onValueChange={(value) =>
-                            handleInputChange("companyType", value)
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select company type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="startup">Startup</SelectItem>
-                            <SelectItem value="small">
-                              Small Business
-                            </SelectItem>
-                            <SelectItem value="medium">
-                              Medium Enterprise
-                            </SelectItem>
-                            <SelectItem value="large">
-                              Large Corporation
-                            </SelectItem>
-                            <SelectItem value="nonprofit">
-                              Non-profit
-                            </SelectItem>
-                            <SelectItem value="government">
-                              Government
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  )}
-
-                  {userType === "university" && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="universityType">University Type</Label>
-                        <Select
-                          onValueChange={(value) =>
-                            handleInputChange("universityType", value)
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select university type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="public">
-                              Public University
-                            </SelectItem>
-                            <SelectItem value="private">
-                              Private University
-                            </SelectItem>
-                            <SelectItem value="community">
-                              Community College
-                            </SelectItem>
-                            <SelectItem value="technical">
-                              Technical Institute
-                            </SelectItem>
-                            <SelectItem value="research">
-                              Research University
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="accreditation">Accreditation</Label>
-                        <Input
-                          id="accreditation"
-                          value={formData.accreditation}
-                          onChange={(e) =>
-                            handleInputChange("accreditation", e.target.value)
-                          }
-                          placeholder="e.g., AACSB, ABET"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                    <Label htmlFor="organizationDescription">Description</Label>
-                    <Textarea
-                      id="organizationDescription"
-                      value={formData.organizationDescription}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "organizationDescription",
-                          e.target.value
-                        )
-                      }
-                      placeholder={`Brief description of the ${userType === "employer" ? "company" : "university"}`}
-                      rows={3}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Admin Information */}
-              {userType === "admin" && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold border-b pb-2">
-                    Administrator Information
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="adminLevel">Admin Level *</Label>
-                      <Select
-                        onValueChange={(value) =>
-                          handleInputChange("adminLevel", value)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select admin level" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="super">
-                            Super Administrator
-                          </SelectItem>
-                          <SelectItem value="system">
-                            System Administrator
-                          </SelectItem>
-                          <SelectItem value="content">
-                            Content Moderator
-                          </SelectItem>
-                          <SelectItem value="support">
-                            Support Administrator
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="department">Department</Label>
-                      <Input
-                        id="department"
-                        value={formData.department}
-                        onChange={(e) =>
-                          handleInputChange("department", e.target.value)
-                        }
-                        placeholder="e.g., IT, Operations, Support"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Admin Permissions</Label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id="user-management"
-                            className="rounded"
-                          />
-                          <Label htmlFor="user-management" className="text-sm">
-                            User Management
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id="content-moderation"
-                            className="rounded"
-                          />
-                          <Label
-                            htmlFor="content-moderation"
-                            className="text-sm"
-                          >
-                            Content Moderation
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id="system-settings"
-                            className="rounded"
-                          />
-                          <Label htmlFor="system-settings" className="text-sm">
-                            System Settings
-                          </Label>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id="analytics"
-                            className="rounded"
-                          />
-                          <Label htmlFor="analytics" className="text-sm">
-                            Analytics & Reports
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id="security"
-                            className="rounded"
-                          />
-                          <Label htmlFor="security" className="text-sm">
-                            Security Management
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id="data-management"
-                            className="rounded"
-                          />
-                          <Label htmlFor="data-management" className="text-sm">
-                            Data Management
-                          </Label>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Role Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">
-                  Role Information
+              {/* Location Information */}
+              <div className="space-y-5">
+                <h3 className="text-lg font-semibold border-b pb-3 flex items-center gap-2">
+                  <MapPin className="w-5 h-5" />
+                  Location Information
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="jobTitle">Job Title *</Label>
-                    <Input
-                      id="jobTitle"
-                      value={formData.jobTitle}
-                      onChange={(e) =>
-                        handleInputChange("jobTitle", e.target.value)
-                      }
-                      placeholder={
-                        userType === "admin"
-                          ? "e.g., System Administrator"
-                          : userType === "employer"
-                            ? "e.g., HR Manager, Recruiter"
-                            : "e.g., Career Counselor, Dean"
-                      }
+                    <EnhancedCountrySelect
+                      label="Country *"
+                      value={formData.country}
+                      onChange={handleCountryChange}
+                      placeholder="Select country..."
                       required
+                      autoDetectLocation={true}
                     />
                   </div>
-                  {userType !== "admin" && (
-                    <div className="space-y-2">
-                      <Label htmlFor="department">Department</Label>
-                      <Input
-                        id="department"
-                        value={formData.department}
-                        onChange={(e) =>
-                          handleInputChange("department", e.target.value)
-                        }
-                        placeholder={
-                          userType === "employer"
-                            ? "e.g., Human Resources"
-                            : "e.g., Career Services, Engineering"
-                        }
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Location */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">
-                  Location
-                </h3>
-                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="country">Country *</Label>
-                    <Select
-                      onValueChange={(value) =>
-                        handleInputChange("country", value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select country" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="us">United States</SelectItem>
-                        <SelectItem value="ca">Canada</SelectItem>
-                        <SelectItem value="uk">United Kingdom</SelectItem>
-                        <SelectItem value="au">Australia</SelectItem>
-                        <SelectItem value="de">Germany</SelectItem>
-                        <SelectItem value="fr">France</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="state">State/Province</Label>
+                    <Label htmlFor="state" className="text-sm font-medium">
+                      State/Province (Optional)
+                    </Label>
                     <Input
                       id="state"
                       value={formData.state}
                       onChange={(e) =>
                         handleInputChange("state", e.target.value)
                       }
-                      placeholder="Enter state/province"
+                      placeholder="Enter state or province"
+                      className="h-11"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="city">City</Label>
+                    <Label htmlFor="city" className="text-sm font-medium">
+                      City *
+                    </Label>
                     <Input
                       id="city"
                       value={formData.city}
@@ -699,49 +670,466 @@ export function CreateUserModal({ trigger }: CreateUserModalProps) {
                         handleInputChange("city", e.target.value)
                       }
                       placeholder="Enter city"
+                      className="h-11"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="zipCode" className="text-sm font-medium">
+                      ZIP/Postal Code (Optional)
+                    </Label>
+                    <Input
+                      id="zipCode"
+                      value={formData.zipCode}
+                      onChange={(e) =>
+                        handleInputChange("zipCode", e.target.value)
+                      }
+                      placeholder="Enter ZIP or postal code"
+                      className="h-11"
                     />
                   </div>
                 </div>
+
+                {detectedLocation && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-blue-700 text-sm">
+                      <Globe className="w-4 h-4" />
+                      <span className="font-medium">
+                        Location auto-detected from IP:
+                      </span>
+                      <span>
+                        {detectedLocation.city}, {detectedLocation.country}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
+              {/* Company Information (for Employers) */}
+              {userType === "EMPLOYER" && (
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold border-b pb-3 flex items-center gap-2">
+                      <Building2 className="w-5 h-5" />
+                      Company Information
+                    </h3>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="createCompany"
+                        checked={formData.createCompany}
+                        onCheckedChange={(checked) =>
+                          handleInputChange("createCompany", checked)
+                        }
+                      />
+                      <Label htmlFor="createCompany" className="text-sm">
+                        Create company profile
+                      </Label>
+                    </div>
+                  </div>
+
+                  {formData.createCompany && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-gray-50 rounded-lg">
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="companyName"
+                          className="text-sm font-medium"
+                        >
+                          Company Name *
+                        </Label>
+                        <Input
+                          id="companyName"
+                          value={formData.companyName}
+                          onChange={(e) =>
+                            handleInputChange("companyName", e.target.value)
+                          }
+                          placeholder="Enter company name"
+                          className="h-11"
+                          required={formData.createCompany}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="companyType"
+                          className="text-sm font-medium"
+                        >
+                          Company Type
+                        </Label>
+                        <Select
+                          onValueChange={(value) =>
+                            handleInputChange("companyType", value)
+                          }
+                          value={formData.companyType}
+                        >
+                          <SelectTrigger className="h-11">
+                            <SelectValue placeholder="Select company type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Private">Private</SelectItem>
+                            <SelectItem value="Public">Public</SelectItem>
+                            <SelectItem value="Non-profit">
+                              Non-profit
+                            </SelectItem>
+                            <SelectItem value="Government">
+                              Government
+                            </SelectItem>
+                            <SelectItem value="Startup">Startup</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="companyIndustry"
+                          className="text-sm font-medium"
+                        >
+                          Industry
+                        </Label>
+                        <Input
+                          id="companyIndustry"
+                          value={formData.companyIndustry}
+                          onChange={(e) =>
+                            handleInputChange("companyIndustry", e.target.value)
+                          }
+                          placeholder="e.g., Technology, Healthcare"
+                          className="h-11"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="companySize"
+                          className="text-sm font-medium"
+                        >
+                          Company Size
+                        </Label>
+                        <Select
+                          onValueChange={(value) =>
+                            handleInputChange("companySize", value)
+                          }
+                          value={formData.companySize}
+                        >
+                          <SelectTrigger className="h-11">
+                            <SelectValue placeholder="Select company size" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1-10">1-10 employees</SelectItem>
+                            <SelectItem value="11-50">
+                              11-50 employees
+                            </SelectItem>
+                            <SelectItem value="51-200">
+                              51-200 employees
+                            </SelectItem>
+                            <SelectItem value="201-500">
+                              201-500 employees
+                            </SelectItem>
+                            <SelectItem value="501-1000">
+                              501-1000 employees
+                            </SelectItem>
+                            <SelectItem value="1000+">
+                              1000+ employees
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="foundedYear"
+                          className="text-sm font-medium"
+                        >
+                          Founded Year
+                        </Label>
+                        <Input
+                          id="foundedYear"
+                          type="number"
+                          min="1800"
+                          max={new Date().getFullYear()}
+                          value={formData.foundedYear}
+                          onChange={(e) =>
+                            handleInputChange(
+                              "foundedYear",
+                              parseInt(e.target.value)
+                            )
+                          }
+                          placeholder="e.g., 2010"
+                          className="h-11"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="companyWebsite"
+                          className="text-sm font-medium"
+                        >
+                          Website
+                        </Label>
+                        <div className="relative">
+                          <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <Input
+                            id="companyWebsite"
+                            type="url"
+                            value={formData.companyWebsite}
+                            onChange={(e) =>
+                              handleInputChange(
+                                "companyWebsite",
+                                e.target.value
+                              )
+                            }
+                            placeholder="https://company.com"
+                            className="pl-10 h-11"
+                          />
+                        </div>
+                      </div>
+                      <div className="md:col-span-2 space-y-2">
+                        <Label
+                          htmlFor="companyDescription"
+                          className="text-sm font-medium"
+                        >
+                          Company Description
+                        </Label>
+                        <Textarea
+                          id="companyDescription"
+                          value={formData.companyDescription}
+                          onChange={(e) =>
+                            handleInputChange(
+                              "companyDescription",
+                              e.target.value
+                            )
+                          }
+                          placeholder="Brief description of the company..."
+                          rows={3}
+                        />
+                      </div>
+
+                      {/* Company Contact Information */}
+                      <div className="md:col-span-2">
+                        <Separator className="my-4" />
+                        <h4 className="font-medium text-sm mb-4">
+                          Company Contact Information
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label
+                              htmlFor="companyEmail"
+                              className="text-sm font-medium"
+                            >
+                              Company Email
+                            </Label>
+                            <div className="relative">
+                              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                              <Input
+                                id="companyEmail"
+                                type="email"
+                                value={formData.companyEmail}
+                                onChange={(e) =>
+                                  handleInputChange(
+                                    "companyEmail",
+                                    e.target.value
+                                  )
+                                }
+                                placeholder="contact@company.com"
+                                className="pl-10 h-11"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label
+                              htmlFor="companyPhone"
+                              className="text-sm font-medium"
+                            >
+                              Company Phone
+                            </Label>
+                            <div className="relative">
+                              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                              <Input
+                                id="companyPhone"
+                                value={formData.companyPhone}
+                                onChange={(e) =>
+                                  handleInputChange(
+                                    "companyPhone",
+                                    e.target.value
+                                  )
+                                }
+                                placeholder="+1 (555) 123-4567"
+                                className="pl-10 h-11"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Company Address */}
+                      <div className="md:col-span-2">
+                        <Separator className="my-4" />
+                        <h4 className="font-medium text-sm mb-4">
+                          Company Address
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label
+                              htmlFor="companyAddress"
+                              className="text-sm font-medium"
+                            >
+                              Street Address
+                            </Label>
+                            <Input
+                              id="companyAddress"
+                              value={formData.companyAddress}
+                              onChange={(e) =>
+                                handleInputChange(
+                                  "companyAddress",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="123 Business Street"
+                              className="h-11"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label
+                              htmlFor="companyCity"
+                              className="text-sm font-medium"
+                            >
+                              City
+                            </Label>
+                            <Input
+                              id="companyCity"
+                              value={formData.companyCity}
+                              onChange={(e) =>
+                                handleInputChange("companyCity", e.target.value)
+                              }
+                              placeholder="Company city"
+                              className="h-11"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label
+                              htmlFor="companyState"
+                              className="text-sm font-medium"
+                            >
+                              State/Province
+                            </Label>
+                            <Input
+                              id="companyState"
+                              value={formData.companyState}
+                              onChange={(e) =>
+                                handleInputChange(
+                                  "companyState",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Company state"
+                              className="h-11"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <EnhancedCountrySelect
+                              label="Country"
+                              value={formData.companyCountry}
+                              onChange={handleCompanyCountryChange}
+                              placeholder="Select company country..."
+                              autoDetectLocation={false}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Role-specific Information */}
+              {userType === "PROFESSOR" && (
+                <div className="space-y-5">
+                  <h3 className="text-lg font-semibold border-b pb-3 flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5" />
+                    Academic Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="university"
+                        className="text-sm font-medium"
+                      >
+                        University *
+                      </Label>
+                      <Input
+                        id="university"
+                        value={formData.university}
+                        onChange={(e) =>
+                          handleInputChange("university", e.target.value)
+                        }
+                        placeholder="Enter university name"
+                        className="h-11"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="department"
+                        className="text-sm font-medium"
+                      >
+                        Department
+                      </Label>
+                      <Input
+                        id="department"
+                        value={formData.department}
+                        onChange={(e) =>
+                          handleInputChange("department", e.target.value)
+                        }
+                        placeholder="e.g., Computer Science"
+                        className="h-11"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Specializations/Skills (for employers) */}
-              {userType === "employer" && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold border-b pb-2">
+              {userType === "EMPLOYER" && (
+                <div className="space-y-5">
+                  <h3 className="text-lg font-semibold border-b pb-3">
                     Specializations
                   </h3>
-                  <div className="space-y-2">
-                    <Label>Areas of Expertise</Label>
-                    <div className="flex gap-2">
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">
+                      Areas of Expertise
+                    </Label>
+                    <div className="flex gap-3">
                       <Input
                         value={currentSkill}
                         onChange={(e) => setCurrentSkill(e.target.value)}
                         placeholder="Add specialization (e.g., Software Development)"
-                        onKeyPress={(e) =>
-                          e.key === "Enter" && (e.preventDefault(), addSkill())
-                        }
+                        className="h-11"
+                        onKeyPress={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addSpecialization();
+                          }
+                        }}
                       />
                       <Button
                         type="button"
-                        onClick={addSkill}
+                        onClick={addSpecialization}
+                        size="sm"
                         variant="outline"
+                        className="h-11 px-4"
                       >
-                        Add
+                        <Plus className="w-4 h-4" />
                       </Button>
                     </div>
-                    {skills.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {skills.map((skill, index) => (
+                    {formData.specializations.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {formData.specializations.map((skill, index) => (
                           <Badge
                             key={index}
                             variant="secondary"
-                            className="flex items-center gap-1"
+                            className="px-3 py-1 text-sm"
                           >
                             {skill}
-                            <X
-                              className="w-3 h-3 cursor-pointer hover:text-red-500"
-                              onClick={() => removeSkill(skill)}
-                            />
+                            <button
+                              type="button"
+                              onClick={() => removeSpecialization(skill)}
+                              className="ml-2 hover:text-red-500"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
                           </Badge>
                         ))}
                       </div>
@@ -751,72 +1139,83 @@ export function CreateUserModal({ trigger }: CreateUserModalProps) {
               )}
 
               {/* Account Settings */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">
+              <div className="space-y-5">
+                <h3 className="text-lg font-semibold border-b pb-3">
                   Account Settings
                 </h3>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Send Welcome Email</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Send account creation notification to the user
-                      </p>
-                    </div>
-                    <Switch
+                  <div className="flex items-center space-x-3">
+                    <Checkbox
+                      id="sendWelcomeEmail"
                       checked={formData.sendWelcomeEmail}
                       onCheckedChange={(checked) =>
                         handleInputChange("sendWelcomeEmail", checked)
                       }
                     />
+                    <Label htmlFor="sendWelcomeEmail" className="text-sm">
+                      Send welcome email with password setup link
+                    </Label>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Require Password Reset</Label>
-                      <p className="text-sm text-muted-foreground">
-                        User must set their own password on first login
-                      </p>
-                    </div>
-                    <Switch
+                  <div className="flex items-center space-x-3">
+                    <Checkbox
+                      id="requirePasswordReset"
                       checked={formData.requirePasswordReset}
                       onCheckedChange={(checked) =>
                         handleInputChange("requirePasswordReset", checked)
                       }
                     />
+                    <Label htmlFor="requirePasswordReset" className="text-sm">
+                      Require password setup on first login
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <Checkbox
+                      id="isVerified"
+                      checked={formData.isVerified}
+                      onCheckedChange={(checked) =>
+                        handleInputChange("isVerified", checked)
+                      }
+                    />
+                    <Label htmlFor="isVerified" className="text-sm">
+                      Mark account as verified
+                    </Label>
                   </div>
                 </div>
+              </div>
+
+              {/* Form Actions */}
+              <div className="flex justify-end gap-4 pt-6 border-t">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onClose}
+                  disabled={isLoading}
+                  className="px-6"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="px-6 min-w-[120px]"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Create User
+                    </>
+                  )}
+                </Button>
               </div>
             </>
           )}
         </form>
-
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setOpen(false)}
-            disabled={loading}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!userType || loading}
-            className="min-w-[120px]"
-          >
-            {loading ? (
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Creating...
-              </div>
-            ) : (
-              <>
-                <UserPlus className="w-4 h-4 mr-2" />
-                Create User
-              </>
-            )}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
-}
+};

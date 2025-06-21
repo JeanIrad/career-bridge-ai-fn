@@ -12,7 +12,8 @@
  * - Loading states and form validation
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,6 +62,19 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
   });
 
   const { mutate: loginUser, isPending } = useLoginUser();
+
+  // Check for session expiration notification
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const sessionExpired = localStorage.getItem("sessionExpired");
+      if (sessionExpired === "true") {
+        toast.error("Your session has expired. Please log in again.", {
+          duration: 5000,
+        });
+        localStorage.removeItem("sessionExpired");
+      }
+    }
+  }, []);
 
   const onSubmit = async (data: LoginFormData) => {
     // Clear any previous auth errors

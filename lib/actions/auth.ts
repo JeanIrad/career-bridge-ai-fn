@@ -170,19 +170,25 @@ export const useLoginUser = () => {
     },
     onSuccess: (data) => {
       console.log("User logged in successfully:", data);
-      const { access_token, user } = data;
+      const { access_token, refresh_token, user } = data;
 
       if (!user || !user.role) {
         toast.error("Invalid user data received", toastErrorStyles);
         return;
       }
 
-      // Store the token in localStorage AND cookies for better security
+      // Store the tokens in localStorage AND cookies for better security
       localStorage.setItem("careerBridgeAIToken", access_token);
+      if (refresh_token) {
+        localStorage.setItem("careerBridgeAIRefreshToken", refresh_token);
+      }
       localStorage.setItem("user", JSON.stringify(user));
 
-      // Set secure cookie
+      // Set secure cookies
       setCookie("careerBridgeAIToken", access_token, 7);
+      if (refresh_token) {
+        setCookie("careerBridgeAIRefreshToken", refresh_token, 30); // Refresh tokens last longer
+      }
 
       // Set authorization header for future requests
       api.defaults.headers.common["Authorization"] = `Bearer ${access_token}`;
@@ -316,13 +322,23 @@ export const useRegisterUser = () => {
 
 // Enhanced logout function
 export const logout = async () => {
+  try {
+    // Call logout API endpoint
+    await api.post("/auth/logout");
+  } catch (error) {
+    console.warn("Logout API call failed:", error);
+  }
+
   // Clear localStorage
   localStorage.removeItem("careerBridgeAIToken");
+  localStorage.removeItem("careerBridgeAIRefreshToken");
   localStorage.removeItem("user");
-  await api.post("/auth/logout");
-  // Clear cookie
+
+  // Clear cookies
   document.cookie =
     "careerBridgeAIToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+  document.cookie =
+    "careerBridgeAIRefreshToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
 
   // Clear axios headers
   delete api.defaults.headers.common["Authorization"];

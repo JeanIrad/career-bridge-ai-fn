@@ -474,10 +474,25 @@ export const useCreateUser = () => {
       accreditation?: string;
       university?: string;
 
-      // Employer Specific
+      // Employer Specific (Enhanced Company Fields)
+      createCompany?: boolean;
+      companyName?: string;
       companyType?: string;
       foundedYear?: number;
       specializations?: string[];
+      companySize?: string;
+      companyDescription?: string;
+      companyWebsite?: string;
+      companyIndustry?: string;
+      companyAddress?: string;
+      companyCity?: string;
+      companyState?: string;
+      companyCountry?: string;
+      companyPhone?: string;
+      companyEmail?: string;
+      companyLinkedIn?: string;
+      companyTwitter?: string;
+      companyFacebook?: string;
 
       // Admin Specific
       adminLevel?: string;
@@ -492,14 +507,27 @@ export const useCreateUser = () => {
       const response = await api.post("/users/admin/create", userData);
       return response.data;
     },
-    onSuccess: () => {
-      // Invalidate user lists to refresh data
-      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    onSuccess: (data) => {
+      // Invalidate and refetch ALL user-related queries to update the table and stats
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
       queryClient.invalidateQueries({ queryKey: ["user-stats"] });
+
+      // Also invalidate user stats query with correct pattern
+      queryClient.invalidateQueries({ queryKey: ["users", "stats"] });
+
+      // Show success message
+      toast.success(
+        data.data.temporaryPassword
+          ? `User created successfully! Password setup link sent to ${data.data.user.email}`
+          : `User created successfully! Welcome email sent to ${data.data.user.email}`
+      );
     },
     onError: (error: any) => {
       console.error("Create user error:", error);
-      throw error;
+      const errorMessage =
+        error.response?.data?.message || "Failed to create user";
+      toast.error(errorMessage);
     },
   });
 };

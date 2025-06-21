@@ -18,6 +18,7 @@ import {
 } from "@/lib/auth-utils";
 import { useRouter } from "next/navigation";
 import api from "@/lib/axios";
+import { useTokenRefresh } from "@/hooks/use-token-refresh";
 
 interface AuthContextType {
   user: User | null;
@@ -36,6 +37,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+
+  // Initialize token refresh hook
+  useTokenRefresh({
+    enabled: isAuthenticated,
+    refreshInterval: 45, // Refresh every 45 minutes
+  });
 
   // Check authentication status
   const checkAuth = async (): Promise<boolean> => {
@@ -112,10 +119,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       const response = await api.post("/auth/login", { email, password });
-      const { access_token, user: userData } = response.data;
+      const { access_token, refresh_token, user: userData } = response.data;
 
-      // Store token and user data using utility functions
+      // Store tokens and user data using utility functions
       setToken(access_token, true); // Remember me = true
+      if (refresh_token) {
+        localStorage.setItem("careerBridgeAIRefreshToken", refresh_token);
+      }
       setStoredUser(userData);
 
       // Set token in axios headers

@@ -22,8 +22,12 @@ import {
   BarChart3,
   HandHeart,
 } from "lucide-react";
+import { useUserStats } from "@/lib/actions/users";
 
 export default function UniversityDashboard() {
+  // Get real-time user statistics
+  const { data: userStats, isLoading: statsLoading } = useUserStats();
+
   const tabs = [
     {
       id: "overview",
@@ -35,14 +39,18 @@ export default function UniversityDashboard() {
       id: "students",
       label: "Student Management",
       icon: Users,
-      badge: "3,247",
+      badge: statsLoading
+        ? "..."
+        : userStats?.roleDistribution?.students?.toString() || "0",
       content: <UniversityStudents />,
     },
     {
       id: "partners",
       label: "Industry Partners",
       icon: Building2,
-      badge: "127",
+      badge: statsLoading
+        ? "..."
+        : userStats?.roleDistribution?.employers?.toString() || "0",
       content: <UniversityPartners />,
     },
     {
@@ -61,7 +69,7 @@ export default function UniversityDashboard() {
       id: "messages",
       label: "Communications",
       icon: MessageCircle,
-      badge: "18",
+      badge: "0", // This would need a separate API for message counts
       content: <UniversityMessages />,
     },
     {
@@ -80,6 +88,9 @@ export default function UniversityDashboard() {
       id: "alumni",
       label: "Alumni Network",
       icon: HandHeart,
+      badge: statsLoading
+        ? "..."
+        : userStats?.roleDistribution?.alumni?.toString() || "0",
       content: <UniversityAlumni />,
     },
   ];
