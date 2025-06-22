@@ -67,6 +67,7 @@ import {
   MessageSquare,
   CheckCircle,
   XCircle,
+  ArrowRight,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -84,6 +85,7 @@ import { RejectApplicationDialog } from "./dialogs/reject-application-dialog";
 import { CandidateProfileDialog } from "./dialogs/candidate-profile-dialog";
 import { EditJobDialog } from "./dialogs/edit-job-dialog";
 import { DeleteJobDialog } from "./dialogs/delete-job-dialog";
+import { MoveStageDialog } from "./dialogs/move-stage-dialog";
 
 interface CreateJobForm {
   title: string;
@@ -124,6 +126,7 @@ export function EmployerJobs() {
   const [showInterviewDialog, setShowInterviewDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
+  const [showMoveStageDialog, setShowMoveStageDialog] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<any>(null);
 
   const {
@@ -137,6 +140,11 @@ export function EmployerJobs() {
     getJobStats,
     getJobApplications,
     updateJob,
+    shortlistCandidate,
+    moveToNextStage,
+    rejectApplication,
+    scheduleInterview,
+    updateApplicationStatus,
   } = useJobs();
 
   const { user: currentUser } = useCurrentUser();
@@ -327,6 +335,10 @@ export function EmployerJobs() {
           // Refresh applications list
           await handleViewApplications(selectedJobForApplications);
           break;
+        case "nextStage":
+          setSelectedApplication(application);
+          setShowMoveStageDialog(true);
+          break;
         case "reject":
           setSelectedApplication(application);
           setShowRejectDialog(true);
@@ -357,6 +369,20 @@ export function EmployerJobs() {
     if (selectedJobForApplications) {
       await handleViewApplications(selectedJobForApplications);
     }
+  };
+
+  const handleMoveStage = async (
+    applicationId: string,
+    newStatus: string,
+    message?: string
+  ) => {
+    const jobId = selectedJobForApplications?.id;
+    if (!jobId) {
+      throw new Error("Job information not available");
+    }
+
+    // Use the updateApplicationStatus function from useJobs hook
+    await updateApplicationStatus(jobId, applicationId, newStatus, message);
   };
 
   const addRequirement = () => {
@@ -1284,7 +1310,7 @@ export function EmployerJobs() {
                                 >
                                   <DropdownMenuItem
                                     className="text-green-600"
-                                    onClick={() =>
+                                    onSelect={() =>
                                       handleApplicationAction(
                                         application.id,
                                         "shortlist",
@@ -1295,8 +1321,25 @@ export function EmployerJobs() {
                                     <CheckCircle className="w-4 h-4 mr-2" />
                                     Shortlist Candidate
                                   </DropdownMenuItem>
+                                  {/* Change Stage button - only show if not at final stage */}
+                                  {application.status !== "ACCEPTED" &&
+                                    application.status !== "REJECTED" && (
+                                      <DropdownMenuItem
+                                        className="text-blue-600"
+                                        onSelect={() => {
+                                          handleApplicationAction(
+                                            application.id,
+                                            "nextStage",
+                                            `${application.user?.firstName} ${application.user?.lastName}`
+                                          );
+                                        }}
+                                      >
+                                        <ArrowRight className="w-4 h-4 mr-2" />
+                                        Change Stage
+                                      </DropdownMenuItem>
+                                    )}
                                   <DropdownMenuItem
-                                    onClick={() =>
+                                    onSelect={() =>
                                       handleApplicationAction(
                                         application.id,
                                         "message",
@@ -1308,7 +1351,7 @@ export function EmployerJobs() {
                                     Send Message
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
-                                    onClick={() =>
+                                    onSelect={() =>
                                       handleApplicationAction(
                                         application.id,
                                         "interview",
@@ -1320,7 +1363,7 @@ export function EmployerJobs() {
                                     Schedule Interview
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
-                                    onClick={() =>
+                                    onSelect={() =>
                                       handleApplicationAction(
                                         application.id,
                                         "profile",
@@ -1333,7 +1376,7 @@ export function EmployerJobs() {
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     className="text-red-600"
-                                    onClick={() =>
+                                    onSelect={() =>
                                       handleApplicationAction(
                                         application.id,
                                         "reject",
@@ -1675,6 +1718,14 @@ export function EmployerJobs() {
             onOpenChange={setShowProfileDialog}
             candidateId={selectedApplication.user.id}
             candidateName={`${selectedApplication.user.firstName} ${selectedApplication.user.lastName}`}
+          />
+
+          <MoveStageDialog
+            open={showMoveStageDialog}
+            onOpenChange={setShowMoveStageDialog}
+            application={selectedApplication}
+            onSuccess={handleDialogSuccess}
+            onMoveStage={handleMoveStage}
           />
         </>
       )}

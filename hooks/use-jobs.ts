@@ -373,6 +373,140 @@ export function useJobs() {
     [makeRequest]
   );
 
+  // ============= APPLICATION MANAGEMENT =============
+
+  const updateApplicationStatus = useCallback(
+    async (
+      jobId: string,
+      applicationId: string,
+      status: string,
+      message?: string
+    ) => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await makeRequest(
+          `/jobs/${jobId}/applications/${applicationId}/status`,
+          {
+            method: "PATCH",
+            body: JSON.stringify({ status, message }),
+          }
+        );
+        return response.data;
+      } catch (err: any) {
+        setError(err.message);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [makeRequest]
+  );
+
+  const shortlistCandidate = useCallback(
+    async (jobId: string, applicationId: string) => {
+      return updateApplicationStatus(jobId, applicationId, "SHORTLISTED");
+    },
+    [updateApplicationStatus]
+  );
+
+  const moveToNextStage = useCallback(
+    async (jobId: string, applicationId: string, currentStatus: string) => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Define the status progression
+        const statusProgression: { [key: string]: string } = {
+          PENDING: "REVIEWED",
+          REVIEWED: "SHORTLISTED",
+          SHORTLISTED: "INTERVIEWED",
+          INTERVIEWED: "ACCEPTED",
+        };
+
+        const nextStatus = statusProgression[currentStatus];
+        if (!nextStatus) {
+          throw new Error("Cannot move to next stage from current status");
+        }
+
+        const response = await makeRequest(
+          `/jobs/${jobId}/applications/${applicationId}/status`,
+          {
+            method: "PATCH",
+            body: JSON.stringify({
+              status: nextStatus,
+              message: `Application moved to ${nextStatus.toLowerCase()} stage`,
+            }),
+          }
+        );
+        return response.data;
+      } catch (err: any) {
+        setError(err.message);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [makeRequest]
+  );
+
+  const rejectApplication = useCallback(
+    async (jobId: string, applicationId: string, reason?: string) => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await makeRequest(
+          `/jobs/${jobId}/applications/${applicationId}/reject`,
+          {
+            method: "POST",
+            body: JSON.stringify({ reason }),
+          }
+        );
+        return response.data;
+      } catch (err: any) {
+        setError(err.message);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [makeRequest]
+  );
+
+  const scheduleInterview = useCallback(
+    async (
+      jobId: string,
+      applicationId: string,
+      interviewData: {
+        scheduledDate: string;
+        scheduledTime: string;
+        interviewType: "PHONE" | "VIDEO" | "IN_PERSON";
+        location?: string;
+        meetingLink?: string;
+        notes?: string;
+      }
+    ) => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await makeRequest(
+          `/jobs/${jobId}/applications/${applicationId}/schedule-interview`,
+          {
+            method: "POST",
+            body: JSON.stringify(interviewData),
+          }
+        );
+        return response.data;
+      } catch (err: any) {
+        setError(err.message);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [makeRequest]
+  );
+
   return {
     loading,
     error,
@@ -389,5 +523,11 @@ export function useJobs() {
     applyToJob,
     getJobApplications,
     getJobStats,
+    // Application management
+    updateApplicationStatus,
+    shortlistCandidate,
+    moveToNextStage,
+    rejectApplication,
+    scheduleInterview,
   };
 }
