@@ -55,6 +55,24 @@ export interface UserProfile {
   skills: any[];
   createdAt: string;
   updatedAt: string;
+  // Extended profile fields
+  phoneNumber?: string;
+  address?: string;
+  state?: string;
+  zipCode?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  nationality?: string;
+  languages?: string[];
+  interests?: string[];
+  isPublic?: boolean;
+  socialLinks?: any;
+  // Student/Alumni specific
+  university?: string;
+  studentId?: string;
+  gpa?: number;
+  graduationYear?: number;
+  availability?: string;
 }
 
 export interface PaginatedUsersResponse {
@@ -89,6 +107,66 @@ export interface UserStats {
   verificationRate: number;
 }
 
+export interface UserGrowth {
+  month: string;
+  newUsers: number;
+  totalUsers: number;
+  growthRate: number;
+}
+
+export interface ActivityMetrics {
+  dailyActiveUsers: number;
+  weeklyActiveUsers: number;
+  monthlyActiveUsers: number;
+  engagementRate: number;
+  averageSessionDuration: number;
+}
+
+export interface PlatformUsage {
+  feature: string;
+  usageCount: number;
+  adoptionRate: number;
+  growthRate: number;
+}
+
+export interface GeographicData {
+  country: string;
+  userCount: number;
+  percentage: number;
+  countryCode: string;
+}
+
+export interface AnalyticsOverview {
+  totalUsers: number;
+  activeUsers: number;
+  totalSessions: number;
+  pageViews: number;
+  averageSessionDuration: number;
+  bounceRate: number;
+  userGrowthRate: number;
+  retentionRate: number;
+}
+
+export interface ComprehensiveAnalytics {
+  overview: AnalyticsOverview;
+  userGrowth: UserGrowth[];
+  activityMetrics: ActivityMetrics;
+  platformUsage: PlatformUsage[];
+  geographicData: GeographicData[];
+  genderDistribution: {
+    male: number;
+    female: number;
+    other: number;
+    notSpecified: number;
+  };
+  roleDistribution: {
+    students: number;
+    alumni: number;
+    employers: number;
+    professors: number;
+  };
+}
+
 export interface RecommendationFilters {
   targetRoles: string[];
   requiredSkills?: string[];
@@ -99,6 +177,30 @@ export interface RecommendationFilters {
 
 export interface RecommendationParams extends PaginationParams {
   filters: RecommendationFilters;
+}
+
+export interface AnalyticsFilters {
+  startDate?: string;
+  endDate?: string;
+  roles?: string[];
+  genders?: string[];
+  countries?: string[];
+  isVerified?: boolean;
+  accountStatus?: string[];
+  timeRange?: "7d" | "30d" | "90d" | "6m" | "1y" | "all";
+}
+
+export interface ExportReport {
+  reportType:
+    | "comprehensive"
+    | "users"
+    | "growth"
+    | "engagement"
+    | "geographic";
+  format: "csv" | "json" | "xlsx" | "pdf";
+  filters?: AnalyticsFilters;
+  sections?: string[];
+  includeCharts?: boolean;
 }
 
 // ============= GENERAL USER FETCHING =============
@@ -276,6 +378,46 @@ export const useUserStats = () => {
     gcTime: 5 * 60 * 1000, // 5 minutes
     refetchInterval: 30 * 1000, // Auto-refresh every 30 seconds
     refetchIntervalInBackground: true, // Continue refreshing when tab is not active
+  });
+};
+
+/**
+ * Fetch comprehensive analytics data (Admin only)
+ */
+export const useComprehensiveAnalytics = (filters?: AnalyticsFilters) => {
+  return useQuery({
+    queryKey: ["users", "analytics", filters],
+    queryFn: async (): Promise<ComprehensiveAnalytics> => {
+      try {
+        const params = new URLSearchParams();
+        if (filters) {
+          Object.entries(filters).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== "") {
+              if (Array.isArray(value)) {
+                if (value.length > 0) {
+                  value.forEach((item) => params.append(key, item));
+                }
+              } else {
+                params.append(key, value.toString());
+              }
+            }
+          });
+        }
+
+        const queryString = params.toString();
+        const url = `/users/admin/analytics${queryString ? `?${queryString}` : ""}`;
+
+        const response = await api.get(url);
+        return response.data.data;
+      } catch (error: any) {
+        console.error("Error fetching analytics data:", error);
+        throw error;
+      }
+    },
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 5 * 60 * 1000, // 5 minutes
+    refetchInterval: 5 * 60 * 1000, // Auto-refresh every 5 minutes
+    refetchIntervalInBackground: true,
   });
 };
 
@@ -620,6 +762,406 @@ export const useUsersByIds = (userIds: string[], enabled: boolean = true) => {
     gcTime: 10 * 60 * 1000, // 10 minutes
   });
 };
+
+/**
+ * Export analytics report (Admin only)
+ */
+export const useExportAnalytics = () => {
+  return useMutation({
+    mutationFn: async (exportData: ExportReport) => {
+      const response = await api.post(
+        "/users/admin/analytics/export",
+        exportData,
+        {
+          responseType: "blob",
+        }
+      );
+
+      // Create blob URL and trigger download
+      const blob = new Blob([response.data]);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+
+      // Determine file extension based on format
+      const extension =
+        exportData.format === "xlsx" ? "xlsx" : exportData.format;
+      link.download = `analytics-${exportData.reportType}-${new Date().toISOString().split("T")[0]}.${extension}`;
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      return response.data;
+    },
+    onSuccess: () => {
+      toast("Export completed successfully!", toastSuccessStyles);
+    },
+    onError: (error: any) => {
+      console.error("Export failed:", error);
+      toast(
+        error?.response?.data?.message || "Failed to export analytics data",
+        toastErrorStyles
+      );
+    },
+  });
+};
+
+// ============= PROFILE UPDATE MUTATIONS =============
+
+export interface UpdateProfileData {
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  headline?: string;
+  bio?: string;
+  avatar?: string;
+  city?: string;
+  country?: string;
+  address?: string;
+  state?: string;
+  zipCode?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  nationality?: string;
+  languages?: string[];
+  interests?: string[];
+  visibility?: string;
+  isPublic?: boolean;
+  socialLinks?: any;
+  // Admin-specific fields
+  university?: string;
+  studentId?: string;
+  gpa?: number;
+  graduationYear?: number;
+  availability?: string;
+}
+
+/**
+ * Update current user's profile
+ */
+export const useUpdateProfile = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (updateData: UpdateProfileData) => {
+      const response = await api.patch("/users/me", updateData);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      // Invalidate and refetch user-related queries
+      queryClient.invalidateQueries({ queryKey: ["user", "current"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+
+      toast("Profile updated successfully!", toastSuccessStyles);
+      return data;
+    },
+    onError: (error: any) => {
+      console.error("Profile update failed:", error);
+      const errorMessage =
+        error?.response?.data?.message || "Failed to update profile";
+      toast(errorMessage, toastErrorStyles);
+      throw error;
+    },
+  });
+};
+
+/**
+ * Upload user avatar/profile picture
+ */
+export const useUploadAvatar = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (file: File) => {
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await api.post("/upload/profile-picture", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+        return response.data;
+      } catch (error: any) {
+        console.error("Error uploading avatar:", error);
+        throw error;
+      }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["users", "current"] });
+      toast.success("Profile picture updated successfully", toastSuccessStyles);
+    },
+    onError: (error: any) => {
+      const message =
+        error.response?.data?.message || "Failed to upload profile picture";
+      toast.error(message, toastErrorStyles);
+    },
+  });
+};
+
+/**
+ * Upload user resume
+ */
+export const useUploadResume = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (file: File) => {
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await api.post("/upload/resume", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+        return response.data;
+      } catch (error: any) {
+        console.error("Error uploading resume:", error);
+        throw error;
+      }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["users", "current"] });
+      queryClient.invalidateQueries({ queryKey: ["users", "documents"] });
+      toast.success("Resume uploaded successfully", toastSuccessStyles);
+    },
+    onError: (error: any) => {
+      const message =
+        error.response?.data?.message || "Failed to upload resume";
+      toast.error(message, toastErrorStyles);
+    },
+  });
+};
+
+/**
+ * Upload portfolio
+ */
+export const useUploadPortfolio = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (file: File) => {
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await api.post("/upload/portfolio", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+        return response.data;
+      } catch (error: any) {
+        console.error("Error uploading portfolio:", error);
+        throw error;
+      }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["users", "documents"] });
+      toast.success("Portfolio uploaded successfully", toastSuccessStyles);
+    },
+    onError: (error: any) => {
+      const message =
+        error.response?.data?.message || "Failed to upload portfolio";
+      toast.error(message, toastErrorStyles);
+    },
+  });
+};
+
+/**
+ * Upload cover letter
+ */
+export const useUploadCoverLetter = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (file: File) => {
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await api.post("/upload/cover-letter", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+        return response.data;
+      } catch (error: any) {
+        console.error("Error uploading cover letter:", error);
+        throw error;
+      }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["users", "documents"] });
+      toast.success("Cover letter uploaded successfully", toastSuccessStyles);
+    },
+    onError: (error: any) => {
+      const message =
+        error.response?.data?.message || "Failed to upload cover letter";
+      toast.error(message, toastErrorStyles);
+    },
+  });
+};
+
+/**
+ * Get user documents
+ */
+export const useUserDocuments = (documentType?: string) => {
+  return useQuery({
+    queryKey: ["users", "documents", documentType],
+    queryFn: async () => {
+      try {
+        const params = documentType ? { documentType } : {};
+        const response = await api.get("/upload/documents", { params });
+        return response.data;
+      } catch (error: any) {
+        console.error("Error fetching documents:", error);
+        throw error;
+      }
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  });
+};
+
+/**
+ * Delete document
+ */
+export const useDeleteDocument = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (documentId: string) => {
+      try {
+        const response = await api.delete(`/upload/documents/${documentId}`);
+        return response.data;
+      } catch (error: any) {
+        console.error("Error deleting document:", error);
+        throw error;
+      }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["users", "documents"] });
+      toast.success("Document deleted successfully", toastSuccessStyles);
+    },
+    onError: (error: any) => {
+      const message =
+        error.response?.data?.message || "Failed to delete document";
+      toast.error(message, toastErrorStyles);
+    },
+  });
+};
+
+/**
+ * Get document upload guidelines
+ */
+export const useUploadGuidelines = () => {
+  return useQuery({
+    queryKey: ["upload", "guidelines"],
+    queryFn: async () => {
+      try {
+        const response = await api.get("/upload/guidelines");
+        return response.data;
+      } catch (error: any) {
+        console.error("Error fetching upload guidelines:", error);
+        throw error;
+      }
+    },
+    staleTime: 30 * 60 * 1000, // 30 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
+  });
+};
+
+// ============= PASSWORD MANAGEMENT =============
+
+export interface ChangePasswordData {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+/**
+ * Change user password
+ */
+export const useChangePassword = () => {
+  return useMutation({
+    mutationFn: async (data: ChangePasswordData) => {
+      try {
+        const response = await api.patch("/users/me/change-password", data);
+        return response.data;
+      } catch (error: any) {
+        console.error("Error changing password:", error);
+        throw error;
+      }
+    },
+    onSuccess: (data) => {
+      toast.success("Password changed successfully", toastSuccessStyles);
+    },
+    onError: (error: any) => {
+      const message =
+        error.response?.data?.message || "Failed to change password";
+      toast.error(message, toastErrorStyles);
+    },
+  });
+};
+
+// ============= DOCUMENT MANAGEMENT =============
+
+export interface Document {
+  id: string;
+  documentType: string;
+  originalName: string;
+  url: string;
+  fileSize: number;
+  fileSizeMB: string;
+  uploadedAt: string;
+  verificationStatus: "PENDING" | "APPROVED" | "REJECTED";
+  isVerified: boolean;
+  verificationNotes?: string;
+}
+
+export interface DocumentUploadResponse {
+  success: boolean;
+  message: string;
+  document: Document;
+}
+
+export interface UserDocumentsResponse {
+  success: boolean;
+  message: string;
+  documents: Document[];
+}
+
+export interface UploadGuideline {
+  allowedFormats: string[];
+  maxSize: string;
+  description: string;
+  verificationRequired: boolean;
+  note?: string;
+}
+
+export interface UploadGuidelines {
+  documentTypes: {
+    [key: string]: UploadGuideline;
+  };
+  general: {
+    maxFileSize: string;
+    securityNote: string;
+    verificationNote: string;
+    supportedFeatures: string[];
+  };
+}
+
+export interface UploadGuidelinesResponse {
+  success: boolean;
+  message: string;
+  guidelines: UploadGuidelines;
+}
 
 // ============= EXPORT ALL =============
 

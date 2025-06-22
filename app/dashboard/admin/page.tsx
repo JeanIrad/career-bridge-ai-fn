@@ -7,7 +7,7 @@ import { AdminUsers } from "@/components/admin/admin-users";
 import { AdminAnalytics } from "@/components/admin/admin-analytics";
 import { AdminSettings } from "@/components/admin/admin-settings";
 import { AdminSecurity } from "@/components/admin/admin-security";
-import { AdminModeration } from "@/components/admin/admin-moderation";
+import { AdminContentModeration } from "@/components/admin/admin-content-moderation";
 import { AdminProfile } from "@/components/admin/admin-profile";
 import { AdminData } from "@/components/admin/admin-data";
 import {
@@ -71,7 +71,7 @@ export default function AdminDashboard() {
       label: "Content Moderation",
       icon: MessageCircle,
       badge: statsLoading ? "..." : pendingVerifications.toString(),
-      content: <AdminModeration />,
+      content: <AdminContentModeration />,
     },
     {
       id: "profile",

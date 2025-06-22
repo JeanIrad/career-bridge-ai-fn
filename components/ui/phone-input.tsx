@@ -26,7 +26,7 @@ export function EnhancedPhoneInput({
       countryCallingCodeEditable={false}
       defaultCountry="US"
       value={value}
-      onChange={onChange}
+      onChange={onChange as any}
       disabled={disabled}
       placeholder={placeholder}
       className={cn(

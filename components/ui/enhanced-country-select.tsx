@@ -46,6 +46,7 @@ const CustomOption = (props: any) => {
   return (
     <components.Option {...rest}>
       <div className="flex items-center gap-3">
+        {/* @ts-ignore */}
         <Flag
           code={data.code}
           style={{ width: 20, height: 15 }}
@@ -66,6 +67,7 @@ const CustomSingleValue = (props: any) => {
   return (
     <components.SingleValue {...rest}>
       <div className="flex items-center gap-2">
+        {/* @ts-ignore */}
         <Flag
           code={data.code}
           style={{ width: 20, height: 15 }}
@@ -285,14 +287,12 @@ export const EnhancedCountrySelect: React.FC<EnhancedCountrySelectProps> = ({
           GH: "233",
           TG: "228",
           BJ: "229",
-          NR: "674",
           CI: "225",
           SL: "232",
           LR: "231",
           GM: "220",
           GN: "224",
           SN: "221",
-          MV: "960",
           IL: "972",
           PS: "970",
           JO: "962",
@@ -318,7 +318,6 @@ export const EnhancedCountrySelect: React.FC<EnhancedCountrySelectProps> = ({
           PE: "51",
           CL: "56",
           AR: "54",
-          FK: "500",
           BZ: "501",
           CR: "506",
           PA: "507",

@@ -1,23 +1,23 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Slider } from "@/components/ui/slider";
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Slider } from '@/components/ui/slider';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { toast } from "sonner";
+} from '@/components/ui/select';
+import { toast } from 'sonner';
 import {
   Zap,
   Settings,
@@ -37,13 +37,13 @@ import {
   Copy,
   Clock,
   Loader2,
-} from "lucide-react";
+} from 'lucide-react';
 import {
   AutoModerationRule,
   AutoModerationRuleConfig,
   ContentType,
   ModerationAction,
-} from "@/lib/actions/content-moderation";
+} from '@/lib/actions/content-moderation';
 
 interface AutoModerationTabProps {
   rules: Record<string, any> | undefined;
@@ -81,7 +81,7 @@ export function AutoModerationTab({
           threshold: config.threshold || 0.5,
           action: config.action || ModerationAction.FLAG,
           configuration: config.configuration || {},
-        })
+        }),
       );
       setLocalRules(ruleConfigs);
     } else {
@@ -134,7 +134,7 @@ export function AutoModerationTab({
           enabled: true,
           threshold: 10,
           action: ModerationAction.TEMPORARY_HIDE,
-          configuration: { timeWindow: "1h" },
+          configuration: { timeWindow: '1h' },
         },
       ]);
     }
@@ -142,7 +142,7 @@ export function AutoModerationTab({
 
   const updateRule = (
     index: number,
-    updates: Partial<AutoModerationRuleConfig>
+    updates: Partial<AutoModerationRuleConfig>,
   ) => {
     const newRules = [...localRules];
     newRules[index] = { ...newRules[index], ...updates };
@@ -154,9 +154,9 @@ export function AutoModerationTab({
     try {
       await onUpdateRules(localRules);
       setHasChanges(false);
-      toast.success("Auto-moderation rules updated successfully");
+      toast.success('Auto-moderation rules updated successfully');
     } catch (error) {
-      toast.error("Failed to update auto-moderation rules");
+      toast.error('Failed to update auto-moderation rules');
     }
   };
 
@@ -184,38 +184,38 @@ export function AutoModerationTab({
   const getRuleDescription = (ruleType: AutoModerationRule) => {
     switch (ruleType) {
       case AutoModerationRule.PROFANITY_FILTER:
-        return "Automatically detect and filter profanity and inappropriate language";
+        return 'Automatically detect and filter profanity and inappropriate language';
       case AutoModerationRule.SPAM_DETECTION:
-        return "Identify spam content using pattern recognition and machine learning";
+        return 'Identify spam content using pattern recognition and machine learning';
       case AutoModerationRule.LINK_VALIDATION:
-        return "Validate links and detect potentially malicious or suspicious URLs";
+        return 'Validate links and detect potentially malicious or suspicious URLs';
       case AutoModerationRule.IMAGE_CONTENT_SCAN:
-        return "Scan images for inappropriate content using AI vision models";
+        return 'Scan images for inappropriate content using AI vision models';
       case AutoModerationRule.SENTIMENT_ANALYSIS:
-        return "Analyze text sentiment to detect negative or harmful content";
+        return 'Analyze text sentiment to detect negative or harmful content';
       case AutoModerationRule.DUPLICATE_DETECTION:
-        return "Detect duplicate or near-duplicate content across the platform";
+        return 'Detect duplicate or near-duplicate content across the platform';
       case AutoModerationRule.RATE_LIMITING:
-        return "Limit the rate of content creation to prevent abuse";
+        return 'Limit the rate of content creation to prevent abuse';
       default:
-        return "Auto-moderation rule";
+        return 'Auto-moderation rule';
     }
   };
 
   const getActionColor = (action: ModerationAction) => {
     switch (action) {
       case ModerationAction.APPROVE:
-        return "bg-green-100 text-green-800";
+        return 'bg-green-100 text-green-800';
       case ModerationAction.REJECT:
-        return "bg-red-100 text-red-800";
+        return 'bg-red-100 text-red-800';
       case ModerationAction.FLAG:
-        return "bg-orange-100 text-orange-800";
+        return 'bg-orange-100 text-orange-800';
       case ModerationAction.TEMPORARY_HIDE:
-        return "bg-yellow-100 text-yellow-800";
+        return 'bg-yellow-100 text-yellow-800';
       case ModerationAction.PERMANENT_BAN:
-        return "bg-red-100 text-red-800";
+        return 'bg-red-100 text-red-800';
       default:
-        return "bg-gray-100 text-gray-800";
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -270,14 +270,14 @@ export function AutoModerationTab({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div
-                        className={`p-2 rounded-lg ${rule.enabled ? "bg-green-100" : "bg-gray-100"}`}
+                        className={`p-2 rounded-lg ${rule.enabled ? 'bg-green-100' : 'bg-gray-100'}`}
                       >
                         {getRuleIcon(rule.ruleType)}
                       </div>
                       <div>
                         <h3 className="font-medium">
                           {rule.ruleType
-                            .replace(/_/g, " ")
+                            .replace(/_/g, ' ')
                             .toLowerCase()
                             .replace(/\b\w/g, (l) => l.toUpperCase())}
                         </h3>
@@ -302,16 +302,16 @@ export function AutoModerationTab({
                           <Label className="text-sm">
                             Threshold: {rule.threshold}
                             {rule.ruleType === AutoModerationRule.RATE_LIMITING
-                              ? " per hour"
-                              : ""}
+                              ? ' per hour'
+                              : ''}
                           </Label>
                           <Badge className={getActionColor(rule.action!)}>
-                            {rule.action?.replace(/_/g, " ")}
+                            {rule.action?.replace(/_/g, ' ')}
                           </Badge>
                         </div>
                         <Slider
                           value={[rule.threshold!]}
-                          onValueChange={([value]: number[]) =>
+                          onValueChange={([value]) =>
                             updateRule(index, { threshold: value })
                           }
                           max={
@@ -368,7 +368,7 @@ export function AutoModerationTab({
                         <div className="space-y-2">
                           <Label className="text-sm">Time Window</Label>
                           <Select
-                            value={rule.configuration?.timeWindow || "1h"}
+                            value={rule.configuration?.timeWindow || '1h'}
                             onValueChange={(value) =>
                               updateRule(index, {
                                 configuration: {
@@ -395,7 +395,7 @@ export function AutoModerationTab({
                         <div className="space-y-2">
                           <Label className="text-sm">Sensitivity Level</Label>
                           <Select
-                            value={rule.configuration?.sensitivity || "medium"}
+                            value={rule.configuration?.sensitivity || 'medium'}
                             onValueChange={(value) =>
                               updateRule(index, {
                                 configuration: {
@@ -449,7 +449,7 @@ export function AutoModerationTab({
                     {Object.values(ContentType).map((type) => (
                       <SelectItem key={type} value={type}>
                         {type
-                          .replace(/_/g, " ")
+                          .replace(/_/g, ' ')
                           .toLowerCase()
                           .replace(/\b\w/g, (l) => l.toUpperCase())}
                       </SelectItem>
@@ -496,15 +496,15 @@ export function AutoModerationTab({
                       <Badge
                         className={
                           isTestingMutation.data.analysis.severity ===
-                          "CRITICAL"
-                            ? "bg-red-100 text-red-800"
+                          'CRITICAL'
+                            ? 'bg-red-100 text-red-800'
                             : isTestingMutation.data.analysis.severity ===
-                                "HIGH"
-                              ? "bg-orange-100 text-orange-800"
+                                'HIGH'
+                              ? 'bg-orange-100 text-orange-800'
                               : isTestingMutation.data.analysis.severity ===
-                                  "MEDIUM"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : "bg-green-100 text-green-800"
+                                  'MEDIUM'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-green-100 text-green-800'
                         }
                       >
                         {isTestingMutation.data.analysis.severity}
@@ -524,17 +524,17 @@ export function AutoModerationTab({
                       <Badge
                         className={
                           isTestingMutation.data.analysis.shouldAutoReject
-                            ? "bg-red-100 text-red-800"
+                            ? 'bg-red-100 text-red-800'
                             : isTestingMutation.data.analysis.shouldAutoApprove
-                              ? "bg-green-100 text-green-800"
-                              : "bg-yellow-100 text-yellow-800"
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-yellow-100 text-yellow-800'
                         }
                       >
                         {isTestingMutation.data.analysis.shouldAutoReject
-                          ? "Auto-Reject"
+                          ? 'Auto-Reject'
                           : isTestingMutation.data.analysis.shouldAutoApprove
-                            ? "Auto-Approve"
-                            : "Manual Review"}
+                            ? 'Auto-Approve'
+                            : 'Manual Review'}
                       </Badge>
                     </div>
                   </div>
@@ -548,7 +548,7 @@ export function AutoModerationTab({
                               <div className="w-1 h-1 bg-muted-foreground rounded-full" />
                               {reason}
                             </li>
-                          )
+                          ),
                         )}
                       </ul>
                     </div>
@@ -571,7 +571,7 @@ export function AutoModerationTab({
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Active Rules:</span>
                   <Badge variant="secondary">
-                    {localRules.filter((rule) => rule.enabled).length} /{" "}
+                    {localRules.filter((rule) => rule.enabled).length} /{' '}
                     {localRules.length}
                   </Badge>
                 </div>
