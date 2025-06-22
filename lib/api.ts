@@ -139,12 +139,14 @@ export const getConversations = async () => {
       Authorization: `Bearer ${token}`,
     },
   });
-  console.log("CHATS RESPONSE", response.json());
+
   if (!response.ok) {
     throw new Error("Failed to fetch conversations");
   }
 
-  return response.json();
+  const data = await response.json();
+  console.log("CHATS RESPONSE", data);
+  return data;
 };
 
 export const getConversationMessages = async (
@@ -162,12 +164,14 @@ export const getConversationMessages = async (
       },
     }
   );
-  console.log("CHATS ARE RETRIEVED =======>", response.json());
+
   if (!response.ok) {
     throw new Error("Failed to fetch conversation messages");
   }
 
-  return response.json();
+  const data = await response.json();
+  console.log("CHATS ARE RETRIEVED =======>", data);
+  return data;
 };
 
 export async function sendMessage(
@@ -197,6 +201,31 @@ export async function sendMessage(
 
   if (!response.ok) {
     throw new Error(data.message || "Failed to send message");
+  }
+
+  return {
+    success: true,
+    data,
+  };
+}
+
+export async function sendDirectMessage(targetUserId: string, content: string) {
+  const response = await fetch(`${API_BASE_URL}/messages`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getToken()}`,
+    },
+    body: JSON.stringify({
+      content,
+      targetUserId,
+    }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to send direct message");
   }
 
   return {

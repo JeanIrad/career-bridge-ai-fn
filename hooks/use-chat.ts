@@ -95,6 +95,7 @@ export interface UseChat {
   stopTyping: (targetUserId?: string, groupId?: string) => void;
   markAsRead: (messageIds: string[]) => Promise<void>;
   getOnlineUsers: (userIds?: string[]) => void;
+  refreshConversations: () => Promise<void>;
 }
 
 export function useChat(): UseChat {
@@ -105,6 +106,12 @@ export function useChat(): UseChat {
     "connecting" | "connected" | "disconnected" | "error"
   >("disconnected");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [conversationMessages, setConversationMessages] = useState<
+    Map<string, Message[]>
+  >(new Map());
+  const [currentConversationId, setCurrentConversationId] = useState<
+    string | null
+  >(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [typingUsers, setTypingUsers] = useState<
@@ -128,13 +135,26 @@ export function useChat(): UseChat {
 
     const loadConversations = async () => {
       try {
+        console.log("🔄 Loading conversations...");
         const response = await getConversations();
-        if (response.success) {
-          setConversations(response.data.conversations);
+        console.log("📥 Conversations response:", response);
+
+        if (response.success && response.data) {
+          // The backend returns conversations in data.conversations
+          const conversations = response.data.conversations || [];
+          console.log("✅ Setting conversations:", conversations);
+          setConversations(conversations);
+        } else {
+          console.warn("⚠️ Invalid response format:", response);
+          setConversations([]);
         }
       } catch (error) {
-        console.error("Failed to load conversations:", error);
+        console.error("❌ Failed to load conversations:", error);
+        setError(
+          `Failed to load conversations: ${error instanceof Error ? error.message : "Unknown error"}`
+        );
         toast.error("Failed to load conversations");
+        setConversations([]);
       }
     };
 
@@ -156,8 +176,8 @@ export function useChat(): UseChat {
         );
         console.log("👤 User ID:", user.id);
         console.log(
-          "🌐 Backend URL:",
-          process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000"
+          "🌐 API URL:",
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
         );
 
         if (!token) {
@@ -167,7 +187,7 @@ export function useChat(): UseChat {
         }
 
         const baseUrl =
-          `${process.env.NEXT_PUBLIC_BACKEND_URL?.replace("/api", "")}` ||
+          `${(process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api").replace("/api", "")}` ||
           "http://localhost:5000";
         console.log("🔌 Attempting to connect to:", `${baseUrl}`);
 
@@ -257,6 +277,13 @@ export function useChat(): UseChat {
         // Message events based on actual gateway implementation
         newSocket.on("receiveMessage", (messageData) => {
           console.log("📨 Received direct message:", messageData);
+          console.log(
+            "👥 Recipients:",
+            messageData.recipients,
+            "Count:",
+            messageData.recipientCount
+          );
+
           const message: Message = {
             id: messageData.messageId || `msg_${Date.now()}`,
             content: messageData.content || messageData.text,
@@ -267,23 +294,33 @@ export function useChat(): UseChat {
             status: "delivered",
             sender: {
               id: messageData.senderId,
-              firstName:
-                messageData.sender?.firstName ||
-                messageData.sender?.split(" ")[0] ||
-                "",
-              lastName:
-                messageData.sender?.lastName ||
-                messageData.sender?.split(" ")[1] ||
-                "",
+              firstName: messageData.sender?.firstName || "",
+              lastName: messageData.sender?.lastName || "",
               email: messageData.sender?.email || "",
               avatar: messageData.sender?.avatar,
-              name: messageData.sender?.name || messageData.sender,
+              name:
+                messageData.sender?.name ||
+                `${messageData.sender?.firstName || ""} ${messageData.sender?.lastName || ""}`.trim() ||
+                messageData.sender?.email ||
+                "Unknown User",
+            },
+            // Add recipient information to the message
+            metadata: {
+              recipients: messageData.recipients || [],
+              recipientCount: messageData.recipientCount || 1,
+              type: messageData.type || "direct",
             },
           };
 
-          setMessages((prev) => {
-            // Check if we already have this message (e.g., from optimistic update)
-            const exists = prev.some(
+          // Add message to conversation-specific storage
+          const conversationId = `direct_${messageData.senderId}`;
+
+          setConversationMessages((prev) => {
+            const updated = new Map(prev);
+            const existingMessages = updated.get(conversationId) || [];
+
+            // Check if we already have this message
+            const exists = existingMessages.some(
               (msg) =>
                 msg.id === message.id ||
                 (msg.content === message.content &&
@@ -295,17 +332,90 @@ export function useChat(): UseChat {
             );
 
             if (!exists) {
+              const updatedMessages = [...existingMessages, message];
+              updated.set(conversationId, updatedMessages);
+
+              // If this is the current conversation, update the display
+              if (currentConversationId === conversationId) {
+                setMessages(updatedMessages);
+              }
+
               if (!message.isOwn) {
                 toast.success(`New message from ${message.sender?.name}`);
               }
-              return [...prev, message];
             }
-            return prev;
+
+            return updated;
+          });
+
+          // Update conversations when receiving a message
+          setConversations((prev) => {
+            const conversationId = `direct_${messageData.senderId}`;
+            const existingConversation = prev.find(
+              (c) => c.id === conversationId
+            );
+
+            if (existingConversation) {
+              // Update existing conversation
+              return prev
+                .map((c) =>
+                  c.id === conversationId
+                    ? {
+                        ...c,
+                        lastMessage: messageData.content,
+                        timestamp: messageData.timestamp,
+                        unreadCount: message.isOwn
+                          ? c.unreadCount
+                          : (c.unreadCount || 0) + 1,
+                      }
+                    : c
+                )
+                .sort(
+                  (a, b) =>
+                    new Date(b.timestamp).getTime() -
+                    new Date(a.timestamp).getTime()
+                );
+            } else {
+              // Create new conversation
+              const newConversation = {
+                id: conversationId,
+                type: "direct" as const,
+                name:
+                  messageData.sender?.name ||
+                  `${messageData.sender?.firstName || ""} ${messageData.sender?.lastName || ""}`.trim() ||
+                  messageData.sender?.email ||
+                  "Unknown User",
+                avatar: messageData.sender?.avatar,
+                lastMessage: messageData.content,
+                timestamp: messageData.timestamp,
+                unreadCount: message.isOwn ? 0 : 1,
+                participants: [
+                  {
+                    id: messageData.senderId,
+                    firstName: messageData.sender?.firstName || "",
+                    lastName: messageData.sender?.lastName || "",
+                    avatar: messageData.sender?.avatar,
+                  },
+                ],
+              };
+              return [newConversation, ...prev].sort(
+                (a, b) =>
+                  new Date(b.timestamp).getTime() -
+                  new Date(a.timestamp).getTime()
+              );
+            }
           });
         });
 
         newSocket.on("receiveGroupMessage", (messageData) => {
           console.log("📨 Received group message:", messageData);
+          console.log(
+            "👥 Group Recipients:",
+            messageData.recipients,
+            "Count:",
+            messageData.recipientCount
+          );
+
           const message: Message = {
             id: messageData.messageId || `msg_${Date.now()}`,
             content: messageData.content,
@@ -316,16 +426,64 @@ export function useChat(): UseChat {
             status: "delivered",
             sender: {
               id: messageData.senderId,
-              name: messageData.sender,
-              firstName: messageData.sender?.split(" ")[0] || "",
-              lastName: messageData.sender?.split(" ")[1] || "",
+              name: messageData.sender || "Unknown User",
+              firstName: "",
+              lastName: "",
               email: "",
             },
+            // Add recipient information to the message
+            metadata: {
+              recipients: messageData.recipients || [],
+              recipientCount: messageData.recipientCount || 0,
+              type: messageData.type || "group",
+              groupId: messageData.groupId,
+            },
           };
-          setMessages((prev) => [...prev, message]);
+          // Add message to conversation-specific storage
+          const conversationId = `group_${messageData.groupId}`;
+
+          setConversationMessages((prev) => {
+            const updated = new Map(prev);
+            const existingMessages = updated.get(conversationId) || [];
+            const updatedMessages = [...existingMessages, message];
+            updated.set(conversationId, updatedMessages);
+
+            // If this is the current conversation, update the display
+            if (currentConversationId === conversationId) {
+              setMessages(updatedMessages);
+            }
+
+            return updated;
+          });
+
           if (!message.isOwn) {
-            toast.success(`New group message from ${messageData.sender}`);
+            toast.success(
+              `New group message from ${messageData.sender} (${messageData.recipientCount || 0} recipients)`
+            );
           }
+
+          // Update group conversations when receiving a message
+          setConversations((prev) => {
+            const conversationId = `group_${messageData.groupId}`;
+            return prev
+              .map((c) =>
+                c.id === conversationId
+                  ? {
+                      ...c,
+                      lastMessage: messageData.content,
+                      timestamp: messageData.timestamp,
+                      unreadCount: message.isOwn
+                        ? c.unreadCount
+                        : (c.unreadCount || 0) + 1,
+                    }
+                  : c
+              )
+              .sort(
+                (a, b) =>
+                  new Date(b.timestamp).getTime() -
+                  new Date(a.timestamp).getTime()
+              );
+          });
         });
 
         newSocket.on("messagesReceived", (data) => {
@@ -541,8 +699,24 @@ export function useChat(): UseChat {
           },
         };
 
-        // Add optimistic message to state
-        setMessages((prev) => [...prev, optimisticMessage]);
+        // Add optimistic message to conversation-specific storage
+        const conversationId = options?.groupId
+          ? `group_${options.groupId}`
+          : `direct_${targetUserId}`;
+
+        setConversationMessages((prev) => {
+          const updated = new Map(prev);
+          const existingMessages = updated.get(conversationId) || [];
+          const updatedMessages = [...existingMessages, optimisticMessage];
+          updated.set(conversationId, updatedMessages);
+
+          // If this is the current conversation, update the display
+          if (currentConversationId === conversationId) {
+            setMessages(updatedMessages);
+          }
+
+          return updated;
+        });
 
         // Send via WebSocket
         socket.emit("sendMessage", messageData);
@@ -556,17 +730,27 @@ export function useChat(): UseChat {
           );
 
           // Update message status based on API response
-          setMessages((prev) =>
-            prev.map((msg) =>
+          setConversationMessages((prev) => {
+            const updated = new Map(prev);
+            const existingMessages = updated.get(conversationId) || [];
+            const updatedMessages = existingMessages.map((msg) =>
               msg.id === optimisticMessage.id
                 ? {
                     ...msg,
                     id: apiResponse.data?.id || msg.id,
-                    status: "sent",
+                    status: "sent" as const,
                   }
                 : msg
-            )
-          );
+            );
+            updated.set(conversationId, updatedMessages);
+
+            // If this is the current conversation, update the display
+            if (currentConversationId === conversationId) {
+              setMessages(updatedMessages);
+            }
+
+            return updated;
+          });
 
           // Update conversations
           setConversations((prev) => {
@@ -586,28 +770,55 @@ export function useChat(): UseChat {
         } catch (apiError) {
           console.warn("API send failed, but WebSocket sent:", apiError);
           // Update message status to error if API call fails
-          setMessages((prev) =>
-            prev.map((msg) =>
+          setConversationMessages((prev) => {
+            const updated = new Map(prev);
+            const existingMessages = updated.get(conversationId) || [];
+            const updatedMessages = existingMessages.map((msg) =>
               msg.id === optimisticMessage.id
-                ? { ...msg, status: "error" }
+                ? { ...msg, status: "error" as const }
                 : msg
-            )
-          );
+            );
+            updated.set(conversationId, updatedMessages);
+
+            // If this is the current conversation, update the display
+            if (currentConversationId === conversationId) {
+              setMessages(updatedMessages);
+            }
+
+            return updated;
+          });
         }
       } catch (error) {
         console.error("❌ Failed to send message:", error);
         // Update failed message status
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id.startsWith("temp_") && msg.content === content
-              ? { ...msg, status: "error" }
-              : msg
-          )
-        );
+        setConversationMessages((prev) => {
+          const updated = new Map(prev);
+          for (const [convId, messages] of updated.entries()) {
+            const updatedMessages = messages.map((msg) =>
+              msg.id.startsWith("temp_") && msg.content === content
+                ? { ...msg, status: "error" as const }
+                : msg
+            );
+            updated.set(convId, updatedMessages);
+
+            // If this is the current conversation, update the display
+            if (currentConversationId === convId) {
+              setMessages(updatedMessages);
+            }
+          }
+          return updated;
+        });
         throw error;
       }
     },
-    [socket, isConnected, user, setMessages, setConversations]
+    [
+      socket,
+      isConnected,
+      user,
+      currentConversationId,
+      setConversationMessages,
+      setConversations,
+    ]
   );
 
   const sendDirectMessage = useCallback(
@@ -627,20 +838,67 @@ export function useChat(): UseChat {
   const getMessages = useCallback(
     async (conversationId: string, limit = 50, offset = 0): Promise<void> => {
       try {
+        console.log(`📥 Loading messages for conversation: ${conversationId}`);
+
+        // Check if we already have messages for this conversation
+        const existingMessages = conversationMessages.get(conversationId);
+        if (existingMessages && existingMessages.length > 0 && offset === 0) {
+          console.log(
+            `💾 Using cached messages for ${conversationId}:`,
+            existingMessages.length
+          );
+          setMessages(existingMessages);
+          setCurrentConversationId(conversationId);
+          return;
+        }
+
         const response = await getConversationMessages(
           conversationId,
           limit,
           offset
         );
         if (response.success) {
-          setMessages(response.data);
+          const newMessages = response.data.map((msg: any) => ({
+            ...msg,
+            id: msg.id,
+            content: msg.content,
+            senderId: msg.senderId,
+            recipientId: msg.recipientId,
+            groupId: msg.groupId,
+            timestamp: msg.createdAt || msg.timestamp,
+            isOwn: msg.senderId === user?.id,
+            status: "delivered",
+            sender: msg.sender,
+            recipients: msg.recipients || [],
+            recipientCount: msg.recipientCount || 0,
+            type: msg.type || "direct",
+          }));
+
+          console.log(
+            `✅ Loaded ${newMessages.length} messages for ${conversationId}`
+          );
+
+          // Store messages for this conversation
+          setConversationMessages((prev) => {
+            const updated = new Map(prev);
+            if (offset === 0) {
+              updated.set(conversationId, newMessages);
+            } else {
+              const existing = updated.get(conversationId) || [];
+              updated.set(conversationId, [...existing, ...newMessages]);
+            }
+            return updated;
+          });
+
+          setMessages(newMessages);
+          setCurrentConversationId(conversationId);
         }
       } catch (error) {
         console.error("Failed to get messages:", error);
         toast.error("Failed to load messages");
       }
     },
-    [setMessages]
+    [conversationMessages, user?.id]
   );
 
   const createGroup = useCallback(
@@ -734,6 +992,24 @@ export function useChat(): UseChat {
     [socket, isConnected]
   );
 
+  const refreshConversations = useCallback(async () => {
+    if (!user?.id) return;
+
+    try {
+      console.log("🔄 Refreshing conversations...");
+      const response = await getConversations();
+      console.log("📥 Refreshed conversations response:", response);
+
+      if (response.success && response.data) {
+        const conversations = response.data.conversations || [];
+        console.log("✅ Refreshed conversations:", conversations);
+        setConversations(conversations);
+      }
+    } catch (error) {
+      console.error("❌ Failed to refresh conversations:", error);
+    }
+  }, [user?.id]);
+
   return {
     isConnected,
     connectionStatus,
@@ -751,5 +1027,6 @@ export function useChat(): UseChat {
     stopTyping,
     markAsRead,
     getOnlineUsers,
+    refreshConversations,
   };
 }

@@ -612,7 +612,6 @@ export function EmployerCandidates() {
                         size="sm"
                         disabled={
                           candidate.status === "REJECTED" ||
-                          candidate.status === "ACCEPTED" ||
                           movingCandidateId === candidate.id
                         }
                         onClick={() => handleMoveToNextStage(candidate)}

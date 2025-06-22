@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { format } from "date-fns";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useChat } from "@/hooks/use-chat";
@@ -21,6 +21,7 @@ import {
   Phone,
   Video,
   UserPlus,
+  RefreshCw,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -70,6 +71,7 @@ export default function EmployerMessages() {
     getMessages,
     startTyping,
     stopTyping,
+    refreshConversations,
   } = useChat();
 
   const [selectedConversation, setSelectedConversation] = useState<
@@ -85,8 +87,51 @@ export default function EmployerMessages() {
   const [selectedTab, setSelectedTab] = useState("all");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [conversationSearchQuery, setConversationSearchQuery] = useState("");
+  const [localConversations, setLocalConversations] = useState<
+    typeof conversations
+  >([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Use local conversations that can be updated
+  const allConversations =
+    localConversations.length > 0 ? localConversations : conversations;
+
+  // Filter conversations based on search query and exclude current user
+  const filteredConversations = useMemo(() => {
+    let filtered = allConversations;
+
+    // Filter out conversations with the current user (self-conversations)
+    if (user?.id) {
+      filtered = filtered.filter((conversation) => {
+        if (conversation.type === "direct") {
+          // For direct conversations, check if the other participant is not the current user
+          const otherParticipant = conversation.participants?.[0];
+          return otherParticipant?.id !== user.id;
+        }
+        return true; // Keep group conversations
+      });
+    }
+
+    // Apply search filter
+    if (!conversationSearchQuery.trim()) return filtered;
+
+    return filtered.filter((conversation) => {
+      const searchLower = conversationSearchQuery.toLowerCase();
+      const name = conversation.name.toLowerCase();
+      const lastMessage = conversation.lastMessage?.toLowerCase() || "";
+
+      return name.includes(searchLower) || lastMessage.includes(searchLower);
+    });
+  }, [allConversations, conversationSearchQuery, user?.id]);
+
+  // Update local conversations when chat conversations change
+  useEffect(() => {
+    if (conversations.length > 0) {
+      setLocalConversations(conversations);
+    }
+  }, [conversations]);
 
   // Update the loadUsers function to handle different user types
   const loadUsers = async () => {
@@ -195,7 +240,7 @@ export default function EmployerMessages() {
       return;
     }
 
-    const conversation = conversations.find(
+    const conversation = filteredConversations.find(
       (c) => c.id === selectedConversation
     );
     if (!conversation) return;
@@ -227,7 +272,7 @@ export default function EmployerMessages() {
 
     if (!selectedConversation) return;
 
-    const conversation = conversations.find(
+    const conversation = filteredConversations.find(
       (c) => c.id === selectedConversation
     );
     if (!conversation) return;
@@ -253,122 +298,233 @@ export default function EmployerMessages() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col space-y-4 p-4">
-      <div className="flex flex-1 overflow-hidden rounded-lg border">
-        {/* Conversations List */}
-        <div className="w-80 border-r">
-          <div className="flex h-14 items-center justify-between border-b px-4">
+    <div className="h-screen flex flex-col">
+      {/* Main Chat Container - Fixed Height */}
+      <div className="flex-1 flex overflow-hidden border-t">
+        {/* Conversations Sidebar - Fixed Width */}
+        <div className="w-80 flex flex-col border-r bg-background">
+          {/* Header - Fixed Height */}
+          <div className="flex h-16 items-center justify-between border-b px-4 flex-shrink-0">
             <h2 className="text-lg font-semibold">Messages</h2>
             <div className="flex items-center gap-2">
-              <Badge variant={isConnected ? "default" : "destructive"}>
+              <Badge
+                variant={isConnected ? "default" : "destructive"}
+                className="text-xs"
+              >
                 {connectionStatus}
               </Badge>
               <Button
                 size="icon"
                 variant="ghost"
-                onClick={() => setShowNewMessageDialog(true)}
+                onClick={refreshConversations}
+                title="Refresh conversations"
+                className="h-8 w-8"
               >
-                <MessageSquarePlus className="h-5 w-5" />
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setShowNewMessageDialog(true)}
+                className="h-8 w-8"
+              >
+                <MessageSquarePlus className="h-4 w-4" />
               </Button>
             </div>
           </div>
-          <div className="p-2">
+
+          {/* Search - Fixed Height */}
+          <div className="border-b p-3 flex-shrink-0">
             <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search conversations..."
-                className="pl-8"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9"
+                value={conversationSearchQuery}
+                onChange={(e) => setConversationSearchQuery(e.target.value)}
               />
             </div>
           </div>
-          <ScrollArea className="h-[calc(100vh-12rem)]">
-            {conversations.map((conversation) => (
-              <div
-                key={conversation.id}
-                className={cn(
-                  "flex cursor-pointer items-center space-x-4 border-b p-4 hover:bg-accent/50",
-                  selectedConversation === conversation.id && "bg-accent"
-                )}
-                onClick={() => setSelectedConversation(conversation.id)}
-              >
-                <Avatar>
-                  <AvatarImage src={conversation.avatar} />
-                  <AvatarFallback>
-                    {conversation.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <p className="font-medium">{conversation.name}</p>
-                    <span className="text-xs text-muted-foreground">
-                      {format(new Date(conversation.timestamp), "HH:mm")}
-                    </span>
+
+          {/* Conversations List - Scrollable */}
+          <div className="flex-1 overflow-hidden">
+            <ScrollArea className="h-full">
+              <div className="p-2 space-y-1">
+                {filteredConversations.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                      <MessageSquare className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground mb-2">
+                      No conversations yet
+                    </p>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      Start a new conversation to get started
+                    </p>
+                    <Button
+                      size="sm"
+                      onClick={() => setShowNewMessageDialog(true)}
+                      className="h-8 bg-blue-600 hover:bg-blue-700"
+                    >
+                      <MessageSquarePlus className="h-4 w-4 mr-2" />
+                      New Message
+                    </Button>
                   </div>
-                  <p className="text-sm text-muted-foreground line-clamp-1">
-                    {conversation.lastMessage}
-                  </p>
-                </div>
-                {conversation.unreadCount > 0 && (
-                  <Badge variant="default">{conversation.unreadCount}</Badge>
+                ) : (
+                  filteredConversations.map((conversation) => (
+                    <div
+                      key={conversation.id}
+                      className={cn(
+                        "flex cursor-pointer items-center space-x-3 rounded-xl p-3 transition-all duration-200 hover:bg-accent/60 hover:shadow-sm",
+                        selectedConversation === conversation.id &&
+                          "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800"
+                      )}
+                      onClick={() => setSelectedConversation(conversation.id)}
+                    >
+                      <div className="relative flex-shrink-0">
+                        <Avatar className="h-12 w-12 border-2 border-background shadow-sm">
+                          <AvatarImage src={conversation.avatar} />
+                          <AvatarFallback className="text-sm font-medium bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                            {conversation.name
+                              ?.split(" ")
+                              .map((n) => n[0])
+                              .join("") || "?"}
+                          </AvatarFallback>
+                        </Avatar>
+                        {/* Online indicator */}
+                        {onlineUsers.includes(
+                          conversation.participants?.[0]?.id || ""
+                        ) && (
+                          <div className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-green-500 border-2 border-background shadow-sm" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="font-semibold text-sm truncate text-foreground">
+                            {conversation.name}
+                          </p>
+                          <span className="text-xs text-muted-foreground flex-shrink-0 ml-2 font-medium">
+                            {format(new Date(conversation.timestamp), "HH:mm")}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-muted-foreground line-clamp-1 flex-1">
+                            {conversation.lastMessage || "No messages yet"}
+                          </p>
+                          {conversation.unreadCount > 0 && (
+                            <Badge
+                              variant="default"
+                              className="h-5 min-w-[20px] text-xs ml-2 bg-blue-600 hover:bg-blue-700"
+                            >
+                              {conversation.unreadCount > 99
+                                ? "99+"
+                                : conversation.unreadCount}
+                            </Badge>
+                          )}
+                        </div>
+                        {/* Online status text */}
+                        <p className="text-xs mt-1 font-medium">
+                          {onlineUsers.includes(
+                            conversation.participants?.[0]?.id || ""
+                          ) ? (
+                            <span className="text-green-600 dark:text-green-400">
+                              ● Online
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">
+                              ○ Offline
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  ))
                 )}
               </div>
-            ))}
-          </ScrollArea>
+            </ScrollArea>
+          </div>
         </div>
 
-        {/* Messages Area */}
-        <div className="flex flex-1 flex-col">
+        {/* Messages Area - Flexible */}
+        <div className="flex-1 flex flex-col bg-background">
           {selectedConversation ? (
             <>
-              <div className="flex h-14 items-center justify-between border-b px-4">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage
-                      src={
-                        conversations.find((c) => c.id === selectedConversation)
-                          ?.avatar
-                      }
-                    />
-                    <AvatarFallback>
-                      {conversations
-                        .find((c) => c.id === selectedConversation)
-                        ?.name.split(" ")
-                        .map((n) => n[0])
-                        .join("")}
-                    </AvatarFallback>
-                  </Avatar>
+              {/* Chat Header - Fixed Height */}
+              <div className="h-16 flex items-center justify-between border-b px-6 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm flex-shrink-0">
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <Avatar className="h-10 w-10 border-2 border-background shadow-sm">
+                      <AvatarImage
+                        src={
+                          filteredConversations.find(
+                            (c) => c.id === selectedConversation
+                          )?.avatar
+                        }
+                      />
+                      <AvatarFallback className="text-sm font-medium bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                        {filteredConversations
+                          .find((c) => c.id === selectedConversation)
+                          ?.name?.split(" ")
+                          .map((n) => n[0])
+                          .join("") || "?"}
+                      </AvatarFallback>
+                    </Avatar>
+                    {/* Online indicator */}
+                    {onlineUsers.includes(
+                      filteredConversations.find(
+                        (c) => c.id === selectedConversation
+                      )?.participants[0]?.id || ""
+                    ) && (
+                      <div className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-green-500 border-2 border-background shadow-sm" />
+                    )}
+                  </div>
                   <div>
-                    <h3 className="font-semibold">
+                    <h3 className="font-semibold text-base text-foreground">
                       {
-                        conversations.find((c) => c.id === selectedConversation)
-                          ?.name
+                        filteredConversations.find(
+                          (c) => c.id === selectedConversation
+                        )?.name
                       }
                     </h3>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-sm font-medium">
                       {onlineUsers.includes(
-                        conversations.find((c) => c.id === selectedConversation)
-                          ?.participants[0]?.id || ""
-                      )
-                        ? "Online"
-                        : "Offline"}
+                        filteredConversations.find(
+                          (c) => c.id === selectedConversation
+                        )?.participants[0]?.id || ""
+                      ) ? (
+                        <span className="text-green-600 dark:text-green-400">
+                          ● Online
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          ○ Offline • Messages will be delivered
+                        </span>
+                      )}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button size="icon" variant="ghost">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-9 w-9 hover:bg-accent"
+                  >
                     <Phone className="h-4 w-4" />
                   </Button>
-                  <Button size="icon" variant="ghost">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-9 w-9 hover:bg-accent"
+                  >
                     <Video className="h-4 w-4" />
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button size="icon" variant="ghost">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-9 w-9 hover:bg-accent"
+                      >
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -389,68 +545,188 @@ export default function EmployerMessages() {
                   </DropdownMenu>
                 </div>
               </div>
-              <ScrollArea className="flex-1 p-4">
-                <div className="space-y-4">
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={cn(
-                        "flex",
-                        message.isOwn ? "justify-end" : "justify-start"
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "max-w-[70%] space-y-2 rounded-lg px-4 py-2",
-                          message.isOwn
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted"
-                        )}
-                      >
-                        <div className="flex items-center gap-2">
-                          {!message.isOwn && (
-                            <span className="text-xs font-medium">
-                              {message.sender?.name}
-                            </span>
-                          )}
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(message.timestamp), "HH:mm")}
-                          </span>
+
+              {/* Messages - Scrollable Area */}
+              <div className="flex-1 overflow-hidden">
+                <ScrollArea className="h-full px-4">
+                  <div className="py-4 space-y-4">
+                    {messages.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-center min-h-[400px]">
+                        <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                          <MessageSquare className="h-8 w-8 text-muted-foreground" />
                         </div>
-                        <p>{message.content}</p>
-                        {message.attachments &&
-                          message.attachments.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {message.attachments.map((attachment, index) => (
-                                <div
-                                  key={index}
-                                  className="rounded bg-background/10 px-2 py-1 text-xs"
-                                >
-                                  <File className="mr-1 inline-block h-3 w-3" />
-                                  {attachment}
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                        <p className="text-sm font-medium text-muted-foreground mb-2">
+                          Start the conversation
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Send a message to get things started
+                        </p>
                       </div>
-                    </div>
-                  ))}
-                  <div ref={messagesEndRef} />
-                </div>
-              </ScrollArea>
-              <div className="border-t p-4">
+                    ) : (
+                      <>
+                        {messages.map((message, index) => {
+                          const isFirstInGroup =
+                            index === 0 ||
+                            messages[index - 1]?.senderId !== message.senderId;
+                          const isLastInGroup =
+                            index === messages.length - 1 ||
+                            messages[index + 1]?.senderId !== message.senderId;
+
+                          return (
+                            <div
+                              key={message.id}
+                              className={cn(
+                                "flex gap-3 group",
+                                message.isOwn ? "flex-row-reverse" : "flex-row",
+                                !isFirstInGroup && "mt-1"
+                              )}
+                            >
+                              {/* Avatar - only show for first message in group */}
+                              {!message.isOwn && isFirstInGroup && (
+                                <Avatar className="h-8 w-8 flex-shrink-0">
+                                  <AvatarImage src={message.sender?.avatar} />
+                                  <AvatarFallback className="text-xs font-medium">
+                                    {message.sender?.name
+                                      ?.split(" ")
+                                      .map((n) => n[0])
+                                      .join("") || "?"}
+                                  </AvatarFallback>
+                                </Avatar>
+                              )}
+
+                              {/* Spacer for grouped messages */}
+                              {!message.isOwn && !isFirstInGroup && (
+                                <div className="w-8 flex-shrink-0" />
+                              )}
+
+                              <div
+                                className={cn(
+                                  "flex flex-col max-w-[70%] min-w-[100px]",
+                                  message.isOwn ? "items-end" : "items-start"
+                                )}
+                              >
+                                {/* Sender name - only for first message in group from others */}
+                                {!message.isOwn && isFirstInGroup && (
+                                  <p className="text-xs font-medium text-muted-foreground mb-1 px-1">
+                                    {message.sender?.name || "Unknown User"}
+                                  </p>
+                                )}
+
+                                {/* Message bubble */}
+                                <div
+                                  className={cn(
+                                    "relative px-4 py-2 text-sm break-words",
+                                    message.isOwn
+                                      ? "bg-blue-600 text-white rounded-2xl rounded-br-md"
+                                      : "bg-gray-100 dark:bg-gray-800 text-foreground rounded-2xl rounded-bl-md",
+                                    // Adjust border radius for grouped messages
+                                    !isFirstInGroup &&
+                                      message.isOwn &&
+                                      "rounded-tr-md",
+                                    !isFirstInGroup &&
+                                      !message.isOwn &&
+                                      "rounded-tl-md",
+                                    !isLastInGroup &&
+                                      message.isOwn &&
+                                      "rounded-br-md",
+                                    !isLastInGroup &&
+                                      !message.isOwn &&
+                                      "rounded-bl-md"
+                                  )}
+                                >
+                                  <p>{message.content}</p>
+
+                                  {/* Message metadata */}
+                                  {message.metadata?.recipients &&
+                                    message.metadata.recipients.length > 0 && (
+                                      <div className="mt-2 pt-2 border-t border-white/20">
+                                        <p className="text-xs opacity-75">
+                                          To:{" "}
+                                          {message.metadata.recipients
+                                            .map(
+                                              (r: any) =>
+                                                `${r.firstName} ${r.lastName}`.trim() ||
+                                                r.email
+                                            )
+                                            .join(", ")}
+                                          {message.metadata.recipientCount >
+                                            1 &&
+                                            ` (${message.metadata.recipientCount} recipients)`}
+                                        </p>
+                                      </div>
+                                    )}
+                                </div>
+
+                                {/* Timestamp and status - only show for last message in group */}
+                                {isLastInGroup && (
+                                  <div
+                                    className={cn(
+                                      "flex items-center gap-1 mt-1 px-1",
+                                      message.isOwn
+                                        ? "flex-row-reverse"
+                                        : "flex-row"
+                                    )}
+                                  >
+                                    <span className="text-xs text-muted-foreground">
+                                      {format(
+                                        new Date(message.timestamp),
+                                        "HH:mm"
+                                      )}
+                                    </span>
+                                    {message.isOwn && (
+                                      <span className="text-xs text-muted-foreground">
+                                        {message.status === "delivered"
+                                          ? "✓✓"
+                                          : message.status === "sent"
+                                            ? "✓"
+                                            : message.status === "sending"
+                                              ? "⏳"
+                                              : ""}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Current user avatar - only show for first message in group */}
+                              {message.isOwn && isFirstInGroup && (
+                                <Avatar className="h-8 w-8 flex-shrink-0">
+                                  <AvatarImage src={user?.avatar} />
+                                  <AvatarFallback className="text-xs font-medium bg-blue-600 text-white">
+                                    {user?.firstName?.[0]}
+                                    {user?.lastName?.[0]}
+                                  </AvatarFallback>
+                                </Avatar>
+                              )}
+
+                              {/* Spacer for grouped messages */}
+                              {message.isOwn && !isFirstInGroup && (
+                                <div className="w-8 flex-shrink-0" />
+                              )}
+                            </div>
+                          );
+                        })}
+                        <div ref={messagesEndRef} />
+                      </>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+
+              {/* Message Input - Fixed Height */}
+              <div className="border-t bg-background p-4 flex-shrink-0">
                 {attachments.length > 0 && (
-                  <div className="mb-4 flex flex-wrap gap-2">
+                  <div className="mb-3 flex flex-wrap gap-2">
                     {attachments.map((file, index) => (
                       <div
                         key={index}
                         className="flex items-center gap-2 rounded-full bg-accent px-3 py-1 text-sm"
                       >
                         <File className="h-4 w-4" />
-                        {file.name}
+                        <span className="max-w-32 truncate">{file.name}</span>
                         <button
                           onClick={() => removeAttachment(index)}
-                          className="ml-1 text-muted-foreground hover:text-foreground"
+                          className="ml-1 text-muted-foreground hover:text-foreground transition-colors"
                         >
                           ×
                         </button>
@@ -458,70 +734,121 @@ export default function EmployerMessages() {
                     ))}
                   </div>
                 )}
+
+                {/* Typing indicator */}
+                {typingUsers.length > 0 && (
+                  <div className="mb-3 flex items-center gap-2 text-muted-foreground">
+                    <div className="flex space-x-1">
+                      <div
+                        className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
+                        style={{ animationDelay: "0ms" }}
+                      />
+                      <div
+                        className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
+                        style={{ animationDelay: "150ms" }}
+                      />
+                      <div
+                        className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
+                        style={{ animationDelay: "300ms" }}
+                      />
+                    </div>
+                    <span className="text-xs">
+                      {typingUsers.map((user) => user.username).join(", ")}{" "}
+                      typing...
+                    </span>
+                  </div>
+                )}
+
                 <form
                   onSubmit={handleSendMessage}
-                  className="flex items-center gap-2"
+                  className="flex items-end gap-3"
                 >
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Paperclip className="h-4 w-4" />
-                  </Button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    className="hidden"
-                    onChange={handleFileSelect}
-                  />
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  >
-                    <Smile className="h-4 w-4" />
-                  </Button>
-                  <Input
-                    placeholder="Type a message..."
-                    value={newMessage}
-                    onChange={handleTyping}
-                    disabled={!isConnected || isSending}
-                    className="flex-1"
-                  />
-                  <Button type="submit" disabled={!isConnected || isSending}>
-                    {isSending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="h-9 w-9 hover:bg-accent"
+                    >
+                      <Paperclip className="h-4 w-4" />
+                    </Button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={handleFileSelect}
+                    />
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                      className="h-9 w-9 hover:bg-accent"
+                    >
+                      <Smile className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  <div className="flex-1 flex items-end gap-3">
+                    <div className="flex-1 relative">
+                      <Input
+                        placeholder="Type a message..."
+                        value={newMessage}
+                        onChange={handleTyping}
+                        disabled={!isConnected || isSending}
+                        className="pr-12 min-h-[40px] resize-none border-2 focus:border-blue-500 transition-colors"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage(e);
+                          }
+                        }}
+                      />
+                      {/* Character counter for long messages */}
+                      {newMessage.length > 100 && (
+                        <span className="absolute bottom-2 right-3 text-xs text-muted-foreground">
+                          {newMessage.length}/1000
+                        </span>
+                      )}
+                    </div>
+
+                    <Button
+                      type="submit"
+                      disabled={!isConnected || isSending || !newMessage.trim()}
+                      size="icon"
+                      className="h-10 w-10 bg-blue-600 hover:bg-blue-700 disabled:bg-muted"
+                    >
+                      {isSending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                 </form>
-                {typingUsers.length > 0 && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {typingUsers.map((user) => user.username).join(", ")}{" "}
-                    typing...
-                  </p>
-                )}
               </div>
             </>
           ) : (
-            <div className="flex flex-1 items-center justify-center">
-              <div className="text-center">
-                <MessageSquarePlus className="mx-auto h-12 w-12 text-muted-foreground" />
-                <h3 className="mt-4 text-lg font-semibold">
-                  No conversation selected
+            <div className="flex flex-1 items-center justify-center bg-gradient-to-br from-blue-50/50 to-purple-50/50 dark:from-blue-900/10 dark:to-purple-900/10">
+              <div className="text-center max-w-md mx-auto p-8">
+                <div className="h-24 w-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center mx-auto mb-6 shadow-lg">
+                  <MessageSquarePlus className="h-12 w-12 text-white" />
+                </div>
+                <h3 className="text-xl font-bold mb-3 text-foreground">
+                  Welcome to Messages
                 </h3>
-                <p className="text-sm text-muted-foreground">
-                  Choose a conversation or start a new one
+                <p className="text-muted-foreground mb-6 leading-relaxed">
+                  Select a conversation from the sidebar to start messaging, or
+                  create a new conversation to connect with colleagues and
+                  candidates.
                 </p>
                 <Button
-                  className="mt-4"
                   onClick={() => setShowNewMessageDialog(true)}
+                  className="h-11 px-6 bg-blue-600 hover:bg-blue-700 shadow-md"
                 >
+                  <MessageSquarePlus className="h-4 w-4 mr-2" />
                   Start new conversation
                 </Button>
               </div>
