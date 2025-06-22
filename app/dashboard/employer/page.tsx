@@ -20,11 +20,21 @@ import {
   BarChart3,
   GraduationCap,
 } from "lucide-react";
-import { useUserStats } from "@/lib/actions/users";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { useEmployerAnalytics } from "@/hooks/use-employer-analytics";
 
 export default function EmployerDashboard() {
-  // Get real-time user statistics
-  const { data: userStats, isLoading: statsLoading } = useUserStats();
+  // Get current user data for dynamic display
+  const { user: currentUser, loading: userLoading } = useCurrentUser();
+
+  // Get employer analytics for badge counts
+  const { dashboardData, loading: analyticsLoading } =
+    useEmployerAnalytics("30d");
+
+  // Calculate real badge counts from employer data
+  const totalApplications = dashboardData?.summary?.totalApplications || 0;
+  const activeJobs = dashboardData?.summary?.activeJobs || 0;
+  const pendingReviews = dashboardData?.summary?.pendingReviews || 0;
 
   const tabs = [
     {
@@ -37,15 +47,14 @@ export default function EmployerDashboard() {
       id: "jobs",
       label: "Job Postings",
       icon: Briefcase,
+      badge: analyticsLoading ? "..." : activeJobs.toString(),
       content: <EmployerJobs />,
     },
     {
       id: "candidates",
       label: "Candidates",
       icon: Users,
-      badge: statsLoading
-        ? "..."
-        : userStats?.roleDistribution?.students?.toString() || "0",
+      badge: analyticsLoading ? "..." : totalApplications.toString(),
       content: <EmployerCandidates />,
     },
     {
@@ -58,6 +67,7 @@ export default function EmployerDashboard() {
       id: "messages",
       label: "Messages",
       icon: MessageCircle,
+      badge: pendingReviews > 0 ? pendingReviews.toString() : undefined,
       content: <EmployerMessages />,
     },
     {
@@ -80,12 +90,19 @@ export default function EmployerDashboard() {
     },
   ];
 
+  // Dynamic user name from real data
+  const userName = userLoading
+    ? "Loading..."
+    : currentUser
+      ? `${currentUser.firstName} ${currentUser.lastName}`
+      : "Employer";
+
   return (
     <EmployerDashboardGuard>
       <TabbedDashboardLayout
         tabs={tabs}
         userRole="Employer"
-        userName="Jennifer Smith"
+        userName={userName}
         defaultTab="overview"
       />
     </EmployerDashboardGuard>
