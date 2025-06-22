@@ -6,7 +6,7 @@ import { EmployerOverview } from "@/components/employer/employer-overview";
 import { EmployerJobs } from "@/components/employer/employer-jobs";
 import { EmployerCandidates } from "@/components/employer/employer-candidates";
 import { EmployerEvents } from "@/components/employer/employer-events";
-import { EmployerMessages } from "@/components/employer/employer-messages";
+import EmployerMessages from "@/components/employer/employer-messages";
 import { EmployerProfile } from "@/components/employer/employer-profile";
 import { EmployerAnalytics } from "@/components/employer/employer-analytics";
 import { EmployerUniversities } from "@/components/employer/employer-universities";

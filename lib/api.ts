@@ -128,3 +128,151 @@ export const getCandidateProfile = async (
 
   return response.json();
 };
+
+// ============= CHAT MANAGEMENT =============
+
+export const getConversations = async () => {
+  const token = getToken();
+  const response = await fetch(`${API_BASE_URL}/chats`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  console.log("CHATS RESPONSE", response.json());
+  if (!response.ok) {
+    throw new Error("Failed to fetch conversations");
+  }
+
+  return response.json();
+};
+
+export const getConversationMessages = async (
+  conversationId: string,
+  limit = 50,
+  offset = 0
+) => {
+  const token = getToken();
+  const response = await fetch(
+    `${API_BASE_URL}/chats/${conversationId}?limit=${limit}&offset=${offset}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+  console.log("CHATS ARE RETRIEVED =======>", response.json());
+  if (!response.ok) {
+    throw new Error("Failed to fetch conversation messages");
+  }
+
+  return response.json();
+};
+
+export async function sendMessage(
+  content: string,
+  targetUserId?: string,
+  options?: {
+    attachments?: string[];
+    metadata?: any;
+    replyTo?: string;
+    groupId?: string;
+  }
+) {
+  const response = await fetch(`${API_BASE_URL}/messages`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getToken()}`,
+    },
+    body: JSON.stringify({
+      content,
+      targetUserId,
+      ...options,
+    }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to send message");
+  }
+
+  return {
+    success: true,
+    data,
+  };
+}
+
+export const createChatGroup = async (
+  name: string,
+  members: string[],
+  description?: string
+) => {
+  const token = getToken();
+  const response = await fetch(`${API_BASE_URL}/chats/groups`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name,
+      members,
+      description,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to create group");
+  }
+
+  return response.json();
+};
+
+export const getUserGroups = async () => {
+  const token = getToken();
+  const response = await fetch(`${API_BASE_URL}/chats/groups`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch groups");
+  }
+
+  return response.json();
+};
+
+export async function getUsers(options?: {
+  page?: number;
+  limit?: number;
+  role?: string;
+  search?: string;
+}) {
+  const params = new URLSearchParams();
+  if (options?.page) params.append("page", options.page.toString());
+  if (options?.limit) params.append("limit", options.limit.toString());
+  if (options?.role) params.append("role", options.role);
+  if (options?.search) params.append("search", options.search);
+
+  const response = await fetch(
+    `${API_BASE_URL}/users${params.toString() ? `?${params.toString()}` : ""}`,
+    {
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to get users");
+  }
+
+  return data;
+}
