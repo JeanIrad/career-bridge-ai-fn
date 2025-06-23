@@ -70,7 +70,7 @@ import {
   Company,
   CompanyDocument,
   CompanyQuery,
-  CompanyVerification,
+  type CompanyVerification,
   BulkCompanyAction,
   getAllCompanies,
   getCompanyById,
@@ -729,7 +729,7 @@ export function CompanyVerification() {
                             size="sm"
                             variant="outline"
                             onClick={() => {
-                              const link = document.createElement("a");
+                              const link = window.document.createElement("a");
                               link.href = document.cloudinaryUrl;
                               link.download = document.originalName;
                               link.click();
@@ -829,7 +829,8 @@ export function CompanyVerification() {
               onClick={handleVerifyCompany}
               disabled={
                 isLoading ||
-                (!verificationData.isApproved && !verificationData.notes.trim())
+                (!verificationData.isApproved &&
+                  !verificationData.notes?.trim())
               }
               variant={verificationData.isApproved ? "default" : "destructive"}
             >

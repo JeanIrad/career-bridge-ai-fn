@@ -85,6 +85,7 @@ import {
   getVerificationStatusLabel,
   getVerificationStatusColor,
 } from "@/lib/api-companies";
+import { EmployerUniversities } from "./employer-universities";
 
 const DOCUMENT_TYPES = [
   { value: "BUSINESS_LICENSE", label: "Business License", required: true },
@@ -132,6 +133,7 @@ export function EmployerProfileEnhanced() {
   const [showNewCompanyDialog, setShowNewCompanyDialog] = useState(false);
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [documents, setDocuments] = useState<CompanyDocument[]>([]);
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingDocument, setUploadingDocument] = useState<string | null>(
     null
@@ -149,17 +151,25 @@ export function EmployerProfileEnhanced() {
 
   const [editData, setEditData] = useState<UpdateCompanyData>({});
 
+  const handleCompanySelect = async (company: Company) => {
+    // Clear documents before setting new company
+    setDocuments([]);
+    setSelectedCompany(company);
+
+    // Only load documents if the company is not newly created
+    if (
+      !company.createdAt ||
+      new Date(company.createdAt).getTime() !== new Date().getTime()
+    ) {
+      await loadDocuments(company.id);
+    }
+  };
+
   useEffect(() => {
     if (user?.role === "EMPLOYER") {
       loadCompanies();
     }
   }, [user]);
-
-  useEffect(() => {
-    if (selectedCompany) {
-      loadDocuments(selectedCompany.id);
-    }
-  }, [selectedCompany]);
 
   const loadCompanies = async () => {
     try {
@@ -167,7 +177,7 @@ export function EmployerProfileEnhanced() {
       const result = await getMyCompanies();
       setCompanies(result.companies);
       if (result.companies.length > 0 && !selectedCompany) {
-        setSelectedCompany(result.companies[0]);
+        handleCompanySelect(result.companies[0]); // Use handleCompanySelect instead of direct setState
       }
     } catch (error) {
       toast.error("Failed to load companies");
@@ -179,11 +189,14 @@ export function EmployerProfileEnhanced() {
 
   const loadDocuments = async (companyId: string) => {
     try {
+      setIsLoadingDocuments(true);
       const docs = await getCompanyDocuments(companyId);
       setDocuments(docs);
     } catch (error) {
       toast.error("Failed to load documents");
       console.error("Error loading documents:", error);
+    } finally {
+      setIsLoadingDocuments(false);
     }
   };
 
@@ -191,8 +204,14 @@ export function EmployerProfileEnhanced() {
     try {
       setIsLoading(true);
       const company = await createCompany(newCompanyData);
+
+      // Add the new company to the list
       setCompanies((prev) => [company, ...prev]);
+
+      // Clear documents and select the new company without loading documents
+      setDocuments([]);
       setSelectedCompany(company);
+
       setShowNewCompanyDialog(false);
       setNewCompanyData({
         name: "",
@@ -318,6 +337,23 @@ export function EmployerProfileEnhanced() {
     );
     if (rejectedDocs.length > 0) return "rejected";
     return "review";
+  };
+
+  const getDocumentCompletionScore = (docs: CompanyDocument[]): number => {
+    const requiredDocs = DOCUMENT_TYPES.filter((d) => d.required);
+    const uploadedRequiredDocs = docs.filter((d) =>
+      requiredDocs.some((rd) => rd.value === d.documentType)
+    );
+    return Math.round(
+      (uploadedRequiredDocs.length / requiredDocs.length) * 100
+    );
+  };
+
+  const getMissingRequiredDocuments = (docs: CompanyDocument[]): string[] => {
+    const requiredDocs = DOCUMENT_TYPES.filter((d) => d.required);
+    return requiredDocs
+      .filter((rd) => !docs.some((d) => d.documentType === rd.value))
+      .map((d) => d.label);
   };
 
   if (!user || user.role !== "EMPLOYER") {
@@ -599,7 +635,7 @@ export function EmployerProfileEnhanced() {
                           ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
                           : "border-border hover:bg-accent"
                       }`}
-                      onClick={() => setSelectedCompany(company)}
+                      onClick={() => handleCompanySelect(company)}
                     >
                       <div className="flex items-start gap-3">
                         <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
@@ -668,9 +704,12 @@ export function EmployerProfileEnhanced() {
           <div className="lg:col-span-3">
             {selectedCompany && (
               <Tabs defaultValue="profile" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="profile">Company Profile</TabsTrigger>
                   <TabsTrigger value="documents">Documents</TabsTrigger>
+                  <TabsTrigger value="universities">
+                    University Partners
+                  </TabsTrigger>
                   <TabsTrigger value="settings">Settings</TabsTrigger>
                 </TabsList>
 
@@ -995,7 +1034,8 @@ export function EmployerProfileEnhanced() {
                         <div>
                           <CardTitle>Company Documents</CardTitle>
                           <CardDescription>
-                            Upload required documents for company verification
+                            Upload required documents for {selectedCompany.name}
+                            's verification
                           </CardDescription>
                         </div>
                         <Dialog
@@ -1010,9 +1050,12 @@ export function EmployerProfileEnhanced() {
                           </DialogTrigger>
                           <DialogContent>
                             <DialogHeader>
-                              <DialogTitle>Upload Company Document</DialogTitle>
+                              <DialogTitle>
+                                Upload Document for {selectedCompany.name}
+                              </DialogTitle>
                               <DialogDescription>
                                 Select the type of document you want to upload
+                                for this company
                               </DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4">
@@ -1122,96 +1165,180 @@ export function EmployerProfileEnhanced() {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      {documents.length === 0 ? (
+                      {isLoadingDocuments ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                            <p className="text-sm text-muted-foreground">
+                              Loading {selectedCompany.name}'s documents...
+                            </p>
+                          </div>
+                        </div>
+                      ) : documents.length === 0 ? (
                         <div className="text-center py-8">
                           <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                           <h3 className="text-lg font-semibold mb-2">
-                            No Documents Uploaded
+                            No Documents Uploaded for {selectedCompany.name}
                           </h3>
                           <p className="text-muted-foreground mb-4">
-                            Upload required documents to verify your company
+                            Upload required documents to verify this company
                           </p>
+                          <div className="mb-6 p-4 border border-yellow-200 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg">
+                            <h4 className="font-medium text-yellow-800 dark:text-yellow-200 mb-2">
+                              Required Documents for Company Verification:
+                            </h4>
+                            <ul className="list-disc list-inside text-sm text-yellow-700 dark:text-yellow-300">
+                              {DOCUMENT_TYPES.filter((d) => d.required).map(
+                                (doc) => (
+                                  <li key={doc.value}>{doc.label}</li>
+                                )
+                              )}
+                            </ul>
+                          </div>
                           <Button onClick={() => setShowDocumentUpload(true)}>
                             <Upload className="w-4 h-4 mr-2" />
                             Upload First Document
                           </Button>
                         </div>
                       ) : (
-                        <div className="space-y-4">
-                          {documents.map((doc) => (
-                            <div
-                              key={doc.id}
-                              className="flex items-center justify-between p-4 border rounded-lg"
-                            >
+                        <div className="space-y-6">
+                          {/* Document Verification Progress */}
+                          <div className="p-4 rounded-lg border bg-muted/50">
+                            <div className="flex items-center justify-between mb-4">
                               <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
-                                  <FileText className="w-5 h-5 text-blue-600" />
-                                </div>
+                                <Shield className="w-5 h-5 text-blue-600" />
                                 <div>
                                   <h4 className="font-medium">
-                                    {getDocumentTypeLabel(doc.documentType)}
+                                    Document Verification Progress for{" "}
+                                    {selectedCompany.name}
                                   </h4>
                                   <p className="text-sm text-muted-foreground">
-                                    {doc.originalName}
+                                    Upload all required documents for company
+                                    verification
                                   </p>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <Badge
-                                      variant={
-                                        doc.verificationStatus === "APPROVED"
-                                          ? "default"
-                                          : doc.verificationStatus ===
-                                              "REJECTED"
-                                            ? "destructive"
-                                            : "secondary"
-                                      }
-                                      className="text-xs"
-                                    >
-                                      {getVerificationStatusLabel(
-                                        doc.verificationStatus
-                                      )}
-                                    </Badge>
-                                    <span className="text-xs text-muted-foreground">
-                                      {new Date(
-                                        doc.uploadedAt
-                                      ).toLocaleDateString()}
-                                    </span>
-                                  </div>
-                                  {doc.verificationNotes && (
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                      Note: {doc.verificationNotes}
-                                    </p>
-                                  )}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() =>
-                                    window.open(doc.cloudinaryUrl, "_blank")
-                                  }
-                                >
-                                  <ExternalLink className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    const link = document.createElement("a");
-                                    link.href = doc.cloudinaryUrl;
-                                    link.download = doc.originalName;
-                                    link.click();
-                                  }}
-                                >
-                                  <Download className="w-4 h-4" />
-                                </Button>
+                              <div className="text-right">
+                                <div className="text-2xl font-bold text-blue-600">
+                                  {getDocumentCompletionScore(documents)}%
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  Complete
+                                </div>
                               </div>
                             </div>
-                          ))}
+                            <Progress
+                              value={getDocumentCompletionScore(documents)}
+                              className="mb-4"
+                            />
+
+                            {/* Missing Documents Warning */}
+                            {getMissingRequiredDocuments(documents).length >
+                              0 && (
+                              <div className="p-3 border border-yellow-200 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg">
+                                <h5 className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-1">
+                                  Missing Required Documents for{" "}
+                                  {selectedCompany.name}:
+                                </h5>
+                                <ul className="list-disc list-inside text-sm text-yellow-700 dark:text-yellow-300">
+                                  {getMissingRequiredDocuments(documents).map(
+                                    (doc) => (
+                                      <li key={doc}>{doc}</li>
+                                    )
+                                  )}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Document List */}
+                          <div className="space-y-4">
+                            {documents.map((doc) => (
+                              <div
+                                key={doc.id}
+                                className="flex items-center justify-between p-4 border rounded-lg"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
+                                    <FileText className="w-5 h-5 text-blue-600" />
+                                  </div>
+                                  <div>
+                                    <h4 className="font-medium">
+                                      {getDocumentTypeLabel(doc.documentType)}
+                                      {DOCUMENT_TYPES.find(
+                                        (d) => d.value === doc.documentType
+                                      )?.required && (
+                                        <span className="text-red-500 ml-1">
+                                          *
+                                        </span>
+                                      )}
+                                    </h4>
+                                    <p className="text-sm text-muted-foreground">
+                                      {doc.originalName}
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <Badge
+                                        variant={
+                                          doc.verificationStatus === "APPROVED"
+                                            ? "default"
+                                            : doc.verificationStatus ===
+                                                "REJECTED"
+                                              ? "destructive"
+                                              : "secondary"
+                                        }
+                                        className="text-xs"
+                                      >
+                                        {getVerificationStatusLabel(
+                                          doc.verificationStatus
+                                        )}
+                                      </Badge>
+                                      <span className="text-xs text-muted-foreground">
+                                        {new Date(
+                                          doc.uploadedAt
+                                        ).toLocaleDateString()}
+                                      </span>
+                                    </div>
+                                    {doc.verificationNotes && (
+                                      <p className="text-xs text-muted-foreground mt-1">
+                                        Note: {doc.verificationNotes}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
+                                      window.open(doc.cloudinaryUrl, "_blank")
+                                    }
+                                  >
+                                    <ExternalLink className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      const link = document.createElement("a");
+                                      link.href = doc.cloudinaryUrl;
+                                      link.download = doc.originalName;
+                                      link.click();
+                                    }}
+                                  >
+                                    <Download className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </CardContent>
                   </Card>
+                </TabsContent>
+
+                <TabsContent value="universities" className="space-y-6">
+                  <EmployerUniversities />
                 </TabsContent>
 
                 <TabsContent value="settings" className="space-y-6">

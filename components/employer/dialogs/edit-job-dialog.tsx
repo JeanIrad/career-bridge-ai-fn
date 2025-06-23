@@ -73,7 +73,7 @@ export function EditJobDialog({
       const jobData = {
         ...editJobForm,
         requirements: editJobForm.requirements.filter(
-          (req) => req.trim() !== ""
+          (req: string) => req.trim() !== ""
         ),
         applicationDeadline: new Date(
           editJobForm.applicationDeadline
