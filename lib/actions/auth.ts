@@ -242,7 +242,10 @@ export const useRegisterUser = () => {
   return useMutation({
     mutationKey: ["registerUser"],
     mutationFn: async (
-      body: Omit<SignupFormData, "agreeToTerms" | "confirmPassword">
+      body: Omit<
+        SignupFormData,
+        "agreeToTerms" | "confirmPassword" | "userType"
+      > & { role: string }
     ) => {
       try {
         const response = await api.post("/auth/register", body);
@@ -368,10 +371,97 @@ export const resendVerificationLink = async (email: string) => {
   try {
     const response = await api.post("/auth/resend-verification", { email });
     return response.data;
-  } catch (error) {
-    console.error("Failed to resend verification link:", error);
+  } catch (error: any) {
+    console.error("Resend verification error:", error);
     throw error;
   }
+};
+
+// Email Validation
+export const useValidateEmail = () => {
+  return useMutation({
+    mutationKey: ["validateEmail"],
+    mutationFn: async (email: string) => {
+      try {
+        const response = await api.post("/auth/validate-email", { email });
+        return response.data;
+      } catch (error: any) {
+        console.error("Email validation error:", error);
+        throw error;
+      }
+    },
+    onError: (error: any) => {
+      const errorMessage =
+        error.response?.data?.message ||
+        "An error occurred while validating the email. Please try again.";
+      toast.error(errorMessage, toastErrorStyles);
+    },
+  });
+};
+
+// Forgot Password
+export const useForgotPassword = () => {
+  return useMutation({
+    mutationKey: ["forgotPassword"],
+    mutationFn: async (email: string) => {
+      try {
+        const response = await api.post("/auth/forgot-password", { email });
+        return response.data;
+      } catch (error: any) {
+        console.error("Forgot password error:", error);
+        throw error;
+      }
+    },
+    onError: (error: any) => {
+      const errorMessage =
+        error.response?.data?.message ||
+        "An error occurred while sending the reset code. Please try again.";
+      toast.error(errorMessage, toastErrorStyles);
+    },
+    onSuccess: (data) => {
+      toast.success(
+        data.message || "Password reset instructions sent to your email",
+        toastSuccessStyles
+      );
+    },
+  });
+};
+
+// Reset Password
+export const useResetPassword = () => {
+  const router = useRouter();
+  return useMutation({
+    mutationKey: ["resetPassword"],
+    mutationFn: async (data: {
+      email: string;
+      resetCode: string;
+      newPassword: string;
+    }) => {
+      try {
+        const response = await api.post("/auth/reset-password", data);
+        return response.data;
+      } catch (error: any) {
+        console.error("Reset password error:", error);
+        throw error;
+      }
+    },
+    onError: (error: any) => {
+      const errorMessage =
+        error.response?.data?.message ||
+        "Failed to reset password. Please try again.";
+      toast.error(errorMessage, toastErrorStyles);
+    },
+    onSuccess: (data) => {
+      toast.success(
+        data.message || "Password reset successfully! You can now log in.",
+        toastSuccessStyles
+      );
+      // Redirect to login after successful password reset
+      setTimeout(() => {
+        router.push("/login");
+      }, 2000);
+    },
+  });
 };
 
 // Legacy alias for backward compatibility

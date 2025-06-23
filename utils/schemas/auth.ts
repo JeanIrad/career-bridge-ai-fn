@@ -13,6 +13,9 @@ export const signupSchema = z
       .min(2, "Last Name must be at least 2 characters")
       .transform((val) => val.trim()),
     email: z.string().min(1, "Email is required").email("Email is invalid"),
+    userType: z.enum(["STUDENT", "ALUMNI"], {
+      required_error: "Please select if you are a student or alumni",
+    }),
     password: z
       .string()
       .min(1, "Password is required")

@@ -18,6 +18,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SignupFormData, signupSchema } from "@/utils/schemas/auth";
 import { useRegisterUser } from "@/lib/actions/auth";
+import { GraduationCap, BookOpen } from "lucide-react";
+
 interface SignupFormProps {
   onToggleMode: () => void;
 }
@@ -39,18 +41,25 @@ export function SignupForm({ onToggleMode }: SignupFormProps) {
       firstName: "",
       lastName: "",
       email: "",
+      userType: undefined,
       password: "",
       confirmPassword: "",
       agreeToTerms: false,
     },
   });
   const agreeToTerms = watch("agreeToTerms");
+  const userType = watch("userType");
   const { mutate, isPending } = useRegisterUser();
   const onSubmit = async (data: SignupFormData) => {
     setIsLoading(true);
     try {
-      const { confirmPassword, agreeToTerms, ...rest } = data;
-      mutate(rest);
+      const { confirmPassword, agreeToTerms, userType, ...rest } = data;
+      // Map userType to role for backend compatibility
+      const submitData = {
+        ...rest,
+        role: userType, // Map userType to role field expected by backend
+      };
+      mutate(submitData);
 
       setTimeout(() => {
         onToggleMode();
@@ -160,6 +169,57 @@ export function SignupForm({ onToggleMode }: SignupFormProps) {
             {errors.email && (
               <p className="text-red-500 text-xs mt-1">
                 {errors.email.message}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-gray-700">I am a</Label>
+            <div className="flex space-x-6">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  id="student"
+                  value="STUDENT"
+                  {...register("userType")}
+                  onChange={(e) => {
+                    register("userType").onChange(e);
+                    handleInputChange("userType");
+                  }}
+                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 focus:ring-2"
+                />
+                <Label
+                  htmlFor="student"
+                  className="flex items-center space-x-2 cursor-pointer text-sm"
+                >
+                  <BookOpen className="h-4 w-4 text-blue-600" />
+                  <span>Student</span>
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  id="alumni"
+                  value="ALUMNI"
+                  {...register("userType")}
+                  onChange={(e) => {
+                    register("userType").onChange(e);
+                    handleInputChange("userType");
+                  }}
+                  className="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 focus:ring-green-500 focus:ring-2"
+                />
+                <Label
+                  htmlFor="alumni"
+                  className="flex items-center space-x-2 cursor-pointer text-sm"
+                >
+                  <GraduationCap className="h-4 w-4 text-green-600" />
+                  <span>Alumni</span>
+                </Label>
+              </div>
+            </div>
+            {errors.userType && (
+              <p className="text-red-500 text-xs mt-1">
+                {errors.userType.message}
               </p>
             )}
           </div>
