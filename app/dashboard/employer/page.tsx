@@ -7,6 +7,7 @@ import { EmployerJobs } from "@/components/employer/employer-jobs";
 import { EmployerCandidates } from "@/components/employer/employer-candidates";
 import { EmployerEvents } from "@/components/employer/employer-events";
 import EmployerMessages from "@/components/employer/employer-messages";
+import { CompanyProfile } from "@/components/employer/company-profile";
 import { EmployerProfile } from "@/components/employer/employer-profile";
 import { EmployerAnalytics } from "@/components/employer/employer-analytics";
 import { EmployerUniversities } from "@/components/employer/employer-universities";
@@ -19,6 +20,7 @@ import {
   Building2,
   BarChart3,
   GraduationCap,
+  User,
 } from "lucide-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useEmployerAnalytics } from "@/hooks/use-employer-analytics";
@@ -71,16 +73,16 @@ export default function EmployerDashboard() {
       content: <EmployerMessages />,
     },
     {
-      id: "profile",
+      id: "company-profile",
       label: "Company Profile",
       icon: Building2,
-      content: <EmployerProfile />,
+      content: <CompanyProfile />,
     },
     {
-      id: "analytics",
-      label: "Analytics",
-      icon: BarChart3,
-      content: <EmployerAnalytics />,
+      id: "employer-profile",
+      label: "Employer Profile",
+      icon: User,
+      content: <EmployerProfile />,
     },
     {
       id: "universities",

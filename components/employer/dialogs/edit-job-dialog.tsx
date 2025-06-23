@@ -101,7 +101,7 @@ export function EditJobDialog({
   const updateRequirement = (index: number, value: string) => {
     setEditJobForm((prev) => ({
       ...prev,
-      requirements: prev.requirements.map((req, i) =>
+      requirements: prev.requirements.map((req: string, i: number) =>
         i === index ? value : req
       ),
     }));
@@ -110,7 +110,9 @@ export function EditJobDialog({
   const removeRequirement = (index: number) => {
     setEditJobForm((prev) => ({
       ...prev,
-      requirements: prev.requirements.filter((_, i) => i !== index),
+      requirements: prev.requirements.filter(
+        (_: string, i: number) => i !== index
+      ),
     }));
   };
 
@@ -196,7 +198,7 @@ export function EditJobDialog({
           <div>
             <Label>Requirements</Label>
             <div className="space-y-2">
-              {editJobForm.requirements.map((req, index) => (
+              {editJobForm.requirements.map((req: string, index: number) => (
                 <div key={index} className="flex gap-2">
                   <Input
                     value={req}

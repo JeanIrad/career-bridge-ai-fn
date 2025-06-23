@@ -86,6 +86,7 @@ import {
   getVerificationStatusColor,
 } from "@/lib/api-companies";
 import { EmployerUniversities } from "./employer-universities";
+import { CompanyProfile } from "./company-profile";
 
 const DOCUMENT_TYPES = [
   { value: "BUSINESS_LICENSE", label: "Business License", required: true },
@@ -704,12 +705,13 @@ export function EmployerProfileEnhanced() {
           <div className="lg:col-span-3">
             {selectedCompany && (
               <Tabs defaultValue="profile" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-5">
                   <TabsTrigger value="profile">Company Profile</TabsTrigger>
                   <TabsTrigger value="documents">Documents</TabsTrigger>
                   <TabsTrigger value="universities">
                     University Partners
                   </TabsTrigger>
+                  {/* <TabsTrigger value="personal">Personal Profile</TabsTrigger> */}
                   <TabsTrigger value="settings">Settings</TabsTrigger>
                 </TabsList>
 
@@ -1339,6 +1341,10 @@ export function EmployerProfileEnhanced() {
 
                 <TabsContent value="universities" className="space-y-6">
                   <EmployerUniversities />
+                </TabsContent>
+
+                <TabsContent value="personal" className="space-y-6">
+                  <CompanyProfile />
                 </TabsContent>
 
                 <TabsContent value="settings" className="space-y-6">
