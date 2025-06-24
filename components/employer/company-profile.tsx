@@ -456,14 +456,14 @@ export function CompanyProfile() {
                 {/* Profile Picture */}
                 <div className="relative">
                   <div className="w-24 h-24 rounded-full overflow-hidden bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
-                    {profile.avatar ? (
+                    {profile?.avatar ? (
                       <img
-                        src={profile.avatar}
-                        alt={`${profile.firstName} ${profile.lastName}`}
+                        src={profile?.avatar}
+                        alt={`${profile?.firstName} ${profile?.lastName}`}
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      `${profile.firstName.charAt(0)}${profile.lastName.charAt(0)}`
+                      `${profile?.firstName?.charAt(0)}${profile?.lastName?.charAt(0)}`
                     )}
                   </div>
                   <Button
@@ -495,18 +495,18 @@ export function CompanyProfile() {
                 {/* Basic Info */}
                 <div>
                   <h3 className="text-xl font-semibold">
-                    {profile.firstName} {profile.lastName}
+                    {profile?.firstName} {profile?.lastName}
                   </h3>
-                  {profile.headline && (
+                  {profile?.headline && (
                     <p className="text-sm text-muted-foreground mt-1">
-                      {profile.headline}
+                      {profile?.headline}
                     </p>
                   )}
                   <div className="flex items-center justify-center gap-2 mt-2">
                     <Badge
-                      variant={profile.isVerified ? "default" : "secondary"}
+                      variant={profile?.isVerified ? "default" : "secondary"}
                     >
-                      {profile.isVerified ? (
+                      {profile?.isVerified ? (
                         <>
                           <CheckCircle className="w-3 h-3 mr-1" />
                           Verified
@@ -546,7 +546,11 @@ export function CompanyProfile() {
                     <Calendar className="w-5 h-5 mx-auto mb-1 text-green-600" />
                     <p className="text-xs text-muted-foreground">Joined</p>
                     <p className="text-sm font-medium">
-                      {new Date(profile.createdAt).toLocaleDateString()}
+                      {profile && profile?.createdAt
+                        ? new Date(
+                            profile?.createdAt || ""
+                          ).toLocaleDateString()
+                        : "N/A"}
                     </p>
                   </div>
                 </div>
