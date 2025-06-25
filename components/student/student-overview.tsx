@@ -34,9 +34,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
+import { useAchievements } from "@/hooks/use-achievements";
 
 export function StudentOverview() {
   const { user } = useAuth();
+  const { achievements, stats, isLoading } = useAchievements();
 
   const quickStats = [
     {
@@ -58,10 +60,10 @@ export function StudentOverview() {
       icon: Users,
     },
     {
-      label: "Skill Score",
-      value: "85%",
-      change: "+5% this month",
-      icon: Target,
+      label: "Achievements",
+      value: isLoading ? "..." : `${stats?.achievementsEarned || 0}`,
+      change: isLoading ? "Loading..." : `${stats?.totalPoints || 0} points`,
+      icon: Award,
     },
   ];
 
