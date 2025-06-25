@@ -6,8 +6,8 @@ import { StudentOverview } from "@/components/student/student-overview";
 import { StudentProfile } from "@/components/student/student-profile";
 import { StudentJobs } from "@/components/student/student-jobs";
 import { StudentInternships } from "@/components/student/student-internships";
-import { StudentEvents } from "@/components/student/student-events";
-import { StudentMentorship } from "@/components/student/student-mentorship";
+import StudentEvents from "@/components/student/student-events";
+import StudentMentorship from "@/components/student/student-mentorship";
 import { StudentLearning } from "@/components/student/student-learning";
 import { StudentMessages } from "@/components/student/student-messages";
 import { StudentAchievements } from "@/components/student/student-achievements";
@@ -67,12 +67,12 @@ export default function StudentDashboard() {
       icon: BookOpen,
       content: <StudentLearning />,
     },
-    // {
-    //   id: "achievements",
-    //   label: "Achievements",
-    //   icon: Trophy,
-    //   content: <StudentAchievements />,
-    // },
+    {
+      id: "achievements",
+      label: "Achievements",
+      icon: Trophy,
+      content: <StudentAchievements />,
+    },
     {
       id: "messages",
       label: "Messages",

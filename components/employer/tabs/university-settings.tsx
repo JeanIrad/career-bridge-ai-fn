@@ -55,14 +55,22 @@ export function UniversitySettings({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [formData, setFormData] = useState({
     description: partnership.description || "",
-    contactEmail: partnership.contactEmail || "",
-    contactPhone: partnership.contactPhone || "",
-    contactPerson: partnership.contactPerson || "",
-    hiringGoals: partnership.hiringGoals || 0,
-    internshipGoals: partnership.internshipGoals || 0,
-    preferredMajors: partnership.preferredMajors || [],
-    benefits: partnership.benefits || [],
-    requirements: partnership.requirements || [],
+    contactEmail: partnership.companyContactEmail || "",
+    contactPhone: partnership.companyContactPhone || "",
+    contactPerson: partnership.companyContactName || "",
+    hiringGoals: partnership.annualHiringGoal || 0,
+    internshipGoals: partnership.internshipGoal || 0,
+    preferredMajors: partnership.targetMajors || [],
+    benefits: partnership.benefits
+      ? typeof partnership.benefits === "string"
+        ? JSON.parse(partnership.benefits)
+        : partnership.benefits
+      : [],
+    requirements: partnership.requirements
+      ? typeof partnership.requirements === "string"
+        ? JSON.parse(partnership.requirements)
+        : partnership.requirements
+      : [],
     notes: partnership.notes || "",
   });
 
@@ -109,7 +117,8 @@ export function UniversitySettings({
         <div>
           <h2 className="text-2xl font-bold">Partnership Settings</h2>
           <p className="text-muted-foreground">
-            Manage your partnership with {partnership.universityName}
+            Manage your partnership with{" "}
+            {partnership.university?.name || "University"}
           </p>
         </div>
         <div className="flex items-center gap-2">

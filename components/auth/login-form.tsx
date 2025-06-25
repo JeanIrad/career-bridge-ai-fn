@@ -33,6 +33,7 @@ import { loginSchema, LoginFormData } from "@/utils/schemas/auth";
 import { useLoginUser } from "@/lib/actions/auth";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAuth } from "@/contexts/auth-context";
 
 interface LoginFormProps {
   onToggleMode: () => void;
@@ -44,6 +45,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
   const [showRetry, setShowRetry] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user, isAuthenticated } = useAuth();
 
   const {
     register,
@@ -74,7 +76,12 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
         localStorage.removeItem("sessionExpired");
       }
     }
-  }, []);
+
+    // Redirect if already authenticated
+    if (isAuthenticated && user) {
+      router.push("/dashboard");
+    }
+  }, [isAuthenticated, user, router]);
 
   const onSubmit = async (data: LoginFormData) => {
     // Clear any previous auth errors

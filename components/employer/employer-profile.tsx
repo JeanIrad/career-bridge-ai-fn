@@ -591,7 +591,7 @@ export function EmployerProfile() {
                       <Label htmlFor="gender">Gender</Label>
                       {isEditing ? (
                         <Select
-                          value={editData.gender || ""}
+                          value={editData.gender || undefined}
                           onValueChange={(value) =>
                             setEditData((prev) => ({
                               ...prev,

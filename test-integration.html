@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Job Integration Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 50px auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      button {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        margin: 5px;
+      }
+      button:hover {
+        background: #0056b3;
+      }
+      .result {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        padding: 15px;
+        margin: 10px 0;
+        white-space: pre-wrap;
+        font-family: monospace;
+      }
+      .success {
+        border-color: #28a745;
+        background-color: #d4edda;
+      }
+      .error {
+        border-color: #dc3545;
+        background-color: #f8d7da;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🧪 Job Integration Test</h1>
+      <p>
+        This page tests the job application and saving functionality integration
+        between frontend and backend.
+      </p>
+
+      <div>
+        <h3>Test Actions:</h3>
+        <button onclick="testSaveJob()">Test Save Job</button>
+        <button onclick="testUnsaveJob()">Test Unsave Job</button>
+        <button onclick="testApplyToJob()">Test Apply to Job</button>
+        <button onclick="testGetSavedJobs()">Test Get Saved Jobs</button>
+        <button onclick="testGetJobStats()">Test Get Job Stats</button>
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button onclick="clearResults()">Clear Results</button>
+      </div>
+
+      <div id="results"></div>
+    </div>
+
+    <script>
+      const API_BASE_URL = "http://localhost:5000/api";
+      const TEST_JOB_ID = "test-job-" + Date.now();
+
+      // Mock token - in real app this would come from authentication
+      const TEST_TOKEN =
+        localStorage.getItem("careerBridgeAIToken") || "test-token";
+
+      function addResult(message, isSuccess = true) {
+        const resultsDiv = document.getElementById("results");
+        const resultDiv = document.createElement("div");
+        resultDiv.className = `result ${isSuccess ? "success" : "error"}`;
+        resultDiv.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+        resultsDiv.appendChild(resultDiv);
+        resultsDiv.scrollTop = resultsDiv.scrollHeight;
+      }
+
+      function clearResults() {
+        document.getElementById("results").innerHTML = "";
+      }
+
+      async function testSaveJob() {
+        addResult("🧪 Testing job saving...");
+
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/jobs/${TEST_JOB_ID}/save`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${TEST_TOKEN}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          const result = await response.json();
+
+          if (response.ok) {
+            addResult(
+              "✅ Job saving successful: " + JSON.stringify(result, null, 2)
+            );
+          } else {
+            addResult("❌ Job saving failed: " + result.message, false);
+          }
+        } catch (error) {
+          addResult("❌ Job saving error: " + error.message, false);
+        }
+      }
+
+      async function testUnsaveJob() {
+        addResult("🧪 Testing job unsaving...");
+
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/jobs/${TEST_JOB_ID}/unsave`,
+            {
+              method: "DELETE",
+              headers: {
+                Authorization: `Bearer ${TEST_TOKEN}`,
+              },
+            }
+          );
+
+          const result = await response.json();
+
+          if (response.ok) {
+            addResult(
+              "✅ Job unsaving successful: " + JSON.stringify(result, null, 2)
+            );
+          } else {
+            addResult("❌ Job unsaving failed: " + result.message, false);
+          }
+        } catch (error) {
+          addResult("❌ Job unsaving error: " + error.message, false);
+        }
+      }
+
+      async function testApplyToJob() {
+        addResult("🧪 Testing job application...");
+
+        try {
+          const applicationData = {
+            resumeUrl: "https://example.com/resume.pdf",
+            coverLetter: "This is a test cover letter for integration testing.",
+            additionalDocuments: ["https://example.com/portfolio.pdf"],
+          };
+
+          const response = await fetch(
+            `${API_BASE_URL}/jobs/${TEST_JOB_ID}/apply`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${TEST_TOKEN}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(applicationData),
+            }
+          );
+
+          const result = await response.json();
+
+          if (response.ok) {
+            addResult(
+              "✅ Job application successful: " +
+                JSON.stringify(result, null, 2)
+            );
+          } else {
+            addResult("❌ Job application failed: " + result.message, false);
+          }
+        } catch (error) {
+          addResult("❌ Job application error: " + error.message, false);
+        }
+      }
+
+      async function testGetSavedJobs() {
+        addResult("🧪 Testing get saved jobs...");
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/jobs/saved`, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${TEST_TOKEN}`,
+            },
+          });
+
+          const result = await response.json();
+
+          if (response.ok) {
+            addResult(
+              "✅ Get saved jobs successful. Found " +
+                (result.data?.length || 0) +
+                " saved jobs"
+            );
+            if (result.data?.length > 0) {
+              addResult(
+                "📋 Saved jobs: " +
+                  JSON.stringify(result.data.slice(0, 2), null, 2)
+              );
+            }
+          } else {
+            addResult("❌ Get saved jobs failed: " + result.message, false);
+          }
+        } catch (error) {
+          addResult("❌ Get saved jobs error: " + error.message, false);
+        }
+      }
+
+      async function testGetJobStats() {
+        addResult("🧪 Testing get job stats...");
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/jobs/stats`, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${TEST_TOKEN}`,
+            },
+          });
+
+          const result = await response.json();
+
+          if (response.ok) {
+            addResult(
+              "✅ Get job stats successful: " +
+                JSON.stringify(result.data, null, 2)
+            );
+          } else {
+            addResult("❌ Get job stats failed: " + result.message, false);
+          }
+        } catch (error) {
+          addResult("❌ Get job stats error: " + error.message, false);
+        }
+      }
+
+      async function runAllTests() {
+        clearResults();
+        addResult("🚀 Starting comprehensive job integration tests...");
+
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        await testSaveJob();
+
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await testGetSavedJobs();
+
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await testApplyToJob();
+
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await testGetJobStats();
+
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await testUnsaveJob();
+
+        addResult("🏁 All tests completed!");
+      }
+
+      // Initialize
+      addResult("🔧 Test page loaded. Backend URL: " + API_BASE_URL);
+      addResult(
+        "🔑 Using token: " +
+          (TEST_TOKEN ? TEST_TOKEN.substring(0, 20) + "..." : "None")
+      );
+    </script>
+  </body>
+</html>

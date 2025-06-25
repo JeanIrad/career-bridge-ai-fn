@@ -49,21 +49,23 @@ export function SignupForm({ onToggleMode }: SignupFormProps) {
   });
   const agreeToTerms = watch("agreeToTerms");
   const userType = watch("userType");
-  const { mutate, isPending } = useRegisterUser();
+  const { mutate, isPending } = useRegisterUser(() => {
+    onToggleMode();
+  });
   const onSubmit = async (data: SignupFormData) => {
     setIsLoading(true);
     try {
       const { confirmPassword, agreeToTerms, userType, ...rest } = data;
-      // Map userType to role for backend compatibility
+      // / Map userType to role for backend compatibility
       const submitData = {
         ...rest,
         role: userType, // Map userType to role field expected by backend
       };
       mutate(submitData);
 
-      setTimeout(() => {
-        onToggleMode();
-      }, 1000);
+      // setTimeout(() => {
+      //   onToggleMode();
+      // }, 1000);
       setIsLoading(false);
     } catch (error) {
       console.error("Signup error:", error);

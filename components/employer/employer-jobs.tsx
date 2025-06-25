@@ -86,6 +86,7 @@ import { CandidateProfileDialog } from "./dialogs/candidate-profile-dialog";
 import { EditJobDialog } from "./dialogs/edit-job-dialog";
 import { DeleteJobDialog } from "./dialogs/delete-job-dialog";
 import { MoveStageDialog } from "./dialogs/move-stage-dialog";
+import { getToken } from "@/lib/auth-utils";
 
 interface CreateJobForm {
   title: string;
@@ -101,6 +102,147 @@ interface CreateJobForm {
   };
   applicationDeadline: string;
 }
+
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+
+// Direct API calls for employer functionality
+const getMyJobs = async (query: any) => {
+  const token = getToken();
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      params.append(key, value.toString());
+    }
+  });
+
+  const response = await fetch(`${API_BASE_URL}/jobs/my-jobs?${params}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) throw new Error("Failed to fetch jobs");
+  return response.json();
+};
+
+const createJob = async (jobData: any) => {
+  const token = getToken();
+  const response = await fetch(`${API_BASE_URL}/jobs`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(jobData),
+  });
+
+  if (!response.ok) throw new Error("Failed to create job");
+  return response.json();
+};
+
+const updateJobStatus = async (jobId: string, status: string) => {
+  const token = getToken();
+  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/status`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ status }),
+  });
+
+  if (!response.ok) throw new Error("Failed to update job status");
+  return response.json();
+};
+
+const deleteJob = async (jobId: string) => {
+  const token = getToken();
+  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) throw new Error("Failed to delete job");
+  return response.json();
+};
+
+const getJobStats = async (jobId: string) => {
+  const token = getToken();
+  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/stats`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) throw new Error("Failed to fetch job stats");
+  return response.json();
+};
+
+const getMyJobStats = async (period: string) => {
+  const token = getToken();
+  const response = await fetch(
+    `${API_BASE_URL}/jobs/my-stats?period=${period}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  if (!response.ok) throw new Error("Failed to fetch job stats");
+  return response.json();
+};
+
+const getJobApplications = async (jobId: string, query: any) => {
+  const token = getToken();
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      params.append(key, value.toString());
+    }
+  });
+
+  const response = await fetch(
+    `${API_BASE_URL}/jobs/${jobId}/applications?${params}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  if (!response.ok) throw new Error("Failed to fetch applications");
+  return response.json();
+};
+
+const updateApplicationStatus = async (
+  applicationId: string,
+  status: string,
+  message?: string
+) => {
+  const token = getToken();
+  const response = await fetch(
+    `${API_BASE_URL}/applications/${applicationId}/status`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status, message }),
+    }
+  );
+
+  if (!response.ok) throw new Error("Failed to update application status");
+  return response.json();
+};
 
 export function EmployerJobs() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -129,23 +271,7 @@ export function EmployerJobs() {
   const [showMoveStageDialog, setShowMoveStageDialog] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<any>(null);
 
-  const {
-    loading,
-    error,
-    getMyJobs,
-    getMyJobStats,
-    createJob,
-    updateJobStatus,
-    deleteJob,
-    getJobStats,
-    getJobApplications,
-    updateJob,
-    shortlistCandidate,
-    moveToNextStage,
-    rejectApplication,
-    scheduleInterview,
-    updateApplicationStatus,
-  } = useJobs();
+  const { loading, error } = useJobs();
 
   const { user: currentUser } = useCurrentUser();
 
@@ -381,8 +507,8 @@ export function EmployerJobs() {
       throw new Error("Job information not available");
     }
 
-    // Use the updateApplicationStatus function from useJobs hook
-    await updateApplicationStatus(jobId, applicationId, newStatus, message);
+    // Use the updateApplicationStatus function with correct signature
+    await updateApplicationStatus(applicationId, newStatus, message);
   };
 
   const addRequirement = () => {

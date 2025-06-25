@@ -258,7 +258,7 @@ export function EmployerUniversities() {
         </CardHeader>
         <CardContent>
           <Select
-            value={selectedCompany?.id || ""}
+            value={selectedCompany?.id || undefined}
             onValueChange={(value) => {
               const company = companies.find((c) => c.id === value);
               if (company) setSelectedCompany(company);
@@ -741,13 +741,13 @@ export function EmployerUniversities() {
                             <div className="flex items-center gap-2 mb-3">
                               <GraduationCap className="w-4 h-4 text-muted-foreground" />
                               <span className="font-medium">
-                                {partnership.university.name}
+                                {partnership.university?.name}
                               </span>
                               <span className="text-muted-foreground">•</span>
                               <MapPin className="w-3 h-3 text-muted-foreground" />
                               <span className="text-sm text-muted-foreground">
-                                {partnership.university.city},{" "}
-                                {partnership.university.country}
+                                {partnership.university?.city},{" "}
+                                {partnership.university?.country}
                               </span>
                             </div>
 
@@ -813,13 +813,13 @@ export function EmployerUniversities() {
                           </div>
 
                           <div className="flex items-center gap-2">
-                            {partnership.university.website && (
+                            {partnership.university?.website && (
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() =>
                                   window.open(
-                                    partnership.university.website,
+                                    partnership.university?.website,
                                     "_blank"
                                   )
                                 }

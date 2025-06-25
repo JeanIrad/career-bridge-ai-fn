@@ -36,6 +36,7 @@ export interface University {
   partnershipContact?: string;
   isActive: boolean;
   isVerified: boolean;
+  recommendationScore?: number;
   createdAt: string;
   updatedAt: string;
   _count?: {
@@ -119,6 +120,38 @@ export interface UniversityPartnership {
     campusEvents: number;
     recruitmentCampaigns: number;
   };
+}
+
+export interface UniversityEvent {
+  id: string;
+  title: string;
+  description?: string;
+  startDateTime: string;
+  endDateTime: string;
+  location?: string;
+  eventType: string;
+  isVirtual: boolean;
+  maxAttendees?: number;
+  currentAttendees: number;
+  registrationDeadline?: string;
+  isPublic: boolean;
+  requiresApproval: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UniversityVisit {
+  id: string;
+  purpose: string;
+  visitDate: string;
+  duration: number;
+  location: string;
+  attendees: string[];
+  agenda: string;
+  notes?: string;
+  status: "SCHEDULED" | "COMPLETED" | "CANCELLED" | "RESCHEDULED";
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Enums
@@ -252,6 +285,19 @@ export interface PartnershipAnalytics {
   topTierPartnerships: number;
   partnershipTypes: Record<string, number>;
   recentPartnerships: number;
+}
+
+export interface PartnershipStats {
+  totalApplications: number;
+  totalHires: number;
+  averageTimeToHire: number;
+  topSkills: string[];
+  applicationTrends: any[];
+  hiringTrends: any[];
+  universityRankings: any[];
+  departmentPerformance: any[];
+  lastEventDate?: string | null;
+  lastVisitDate?: string | null;
 }
 
 // Helper function to get auth headers
@@ -569,19 +615,191 @@ export const getUniversityRecommendations = async (
   success: boolean;
   data: University[];
 }> => {
+  try {
+    const response = await fetch(
+      `${API_URL}/university-partners/partnerships/company/${companyId}/recommendations`,
+      {
+        headers: getAuthHeaders(),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching university recommendations:", error);
+    throw error;
+  }
+};
+
+// Event management functions
+export const createEvent = async (
+  eventData: Partial<UniversityEvent>
+): Promise<UniversityEvent> => {
+  try {
+    const response = await fetch(`${API_URL}/university-partners/events`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(eventData),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error creating event:", error);
+    throw error;
+  }
+};
+
+export const getEvents = async (
+  params: any = {}
+): Promise<{
+  events: UniversityEvent[];
+  pagination: any;
+}> => {
+  try {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        queryParams.append(key, value.toString());
+      }
+    });
+
+    const response = await fetch(
+      `${API_URL}/university-partners/events?${queryParams}`,
+      {
+        headers: getAuthHeaders(),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching events:", error);
+    throw error;
+  }
+};
+
+export const updateEvent = async (
+  eventId: string,
+  eventData: Partial<UniversityEvent>
+): Promise<UniversityEvent> => {
+  try {
+    const response = await fetch(
+      `${API_URL}/university-partners/events/${eventId}`,
+      {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(eventData),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error updating event:", error);
+    throw error;
+  }
+};
+
+export const deleteEvent = async (eventId: string): Promise<void> => {
+  try {
+    const response = await fetch(
+      `${API_URL}/university-partners/events/${eventId}`,
+      {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+  } catch (error) {
+    console.error("Error deleting event:", error);
+    throw error;
+  }
+};
+
+export const getPartnershipStats = async (
+  partnershipId: string
+): Promise<PartnershipStats> => {
   const response = await fetch(
-    `${API_URL}/university-partners/partnerships/company/${companyId}/recommendations`,
+    `${API_URL}/university-partners/partnerships/${partnershipId}/stats`,
     {
       headers: getAuthHeaders(),
     }
   );
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(
-      error.message || "Failed to get university recommendations"
-    );
+    throw new Error("Failed to fetch partnership stats");
   }
 
-  return response.json();
+  const data = await response.json();
+  return data.data;
+};
+
+// ============= VISIT MANAGEMENT (PLACEHOLDER) =============
+
+export const createVisit = async (
+  partnershipId: string,
+  visitData: any
+): Promise<UniversityVisit> => {
+  // Placeholder implementation
+  return {
+    id: `visit-${Date.now()}`,
+    purpose: visitData.purpose,
+    visitDate: visitData.visitDate,
+    duration: visitData.duration,
+    location: visitData.location,
+    attendees: visitData.attendees,
+    agenda: visitData.agenda,
+    notes: visitData.notes,
+    status: "SCHEDULED",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+};
+
+export const getPartnershipVisits = async (
+  partnershipId: string
+): Promise<UniversityVisit[]> => {
+  // Placeholder implementation
+  return [];
+};
+
+export const updateVisit = async (
+  visitId: string,
+  visitData: any
+): Promise<UniversityVisit> => {
+  // Placeholder implementation
+  return {
+    id: visitId,
+    purpose: visitData.purpose,
+    visitDate: visitData.visitDate,
+    duration: visitData.duration,
+    location: visitData.location,
+    attendees: visitData.attendees,
+    agenda: visitData.agenda,
+    notes: visitData.notes,
+    status: visitData.status || "SCHEDULED",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+};
+
+export const deleteVisit = async (visitId: string): Promise<void> => {
+  // Placeholder implementation
+  console.log(`Deleting visit ${visitId}`);
 };

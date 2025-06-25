@@ -155,7 +155,7 @@ export function UniversityVisits({ partnership }: UniversityVisitsProps) {
         <div>
           <h2 className="text-2xl font-bold">Campus Visits</h2>
           <p className="text-muted-foreground">
-            Schedule and manage visits to {partnership.universityName}
+            Schedule and manage visits to {partnership.university?.name}
           </p>
         </div>
         <Dialog open={showNewVisitDialog} onOpenChange={setShowNewVisitDialog}>
@@ -169,7 +169,7 @@ export function UniversityVisits({ partnership }: UniversityVisitsProps) {
             <DialogHeader>
               <DialogTitle>Schedule Campus Visit</DialogTitle>
               <DialogDescription>
-                Plan a visit to {partnership.universityName}
+                Plan a visit to {partnership.university?.name}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">{/* Add form fields here */}</div>
@@ -188,7 +188,7 @@ export function UniversityVisits({ partnership }: UniversityVisitsProps) {
             <Building className="h-16 w-16 text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold mb-2">No Visits Scheduled</h3>
             <p className="text-muted-foreground text-center mb-6 max-w-md">
-              Schedule your first campus visit to {partnership.universityName}
+              Schedule your first campus visit to {partnership.university?.name}
             </p>
             <Button onClick={() => setShowNewVisitDialog(true)}>
               <Plus className="w-4 h-4 mr-2" />
@@ -291,12 +291,7 @@ export function UniversityVisits({ partnership }: UniversityVisitsProps) {
                               View Agenda
                             </Button>
                           )}
-                          {visit.feedback && (
-                            <Button variant="outline" size="sm">
-                              <MessageSquare className="w-4 h-4 mr-2" />
-                              View Feedback
-                            </Button>
-                          )}
+                          {/* Removed feedback button since property doesn't exist */}
                         </div>
                       </div>
                     </div>

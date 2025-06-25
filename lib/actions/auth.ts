@@ -238,7 +238,7 @@ export const useLoginUser = () => {
   });
 };
 
-export const useRegisterUser = () => {
+export const useRegisterUser = (onSuccess?: () => void) => {
   return useMutation({
     mutationKey: ["registerUser"],
     mutationFn: async (
@@ -319,6 +319,7 @@ export const useRegisterUser = () => {
         data.message || "Account created successfully!",
         toastSuccessStyles
       );
+      onSuccess?.();
     },
   });
 };

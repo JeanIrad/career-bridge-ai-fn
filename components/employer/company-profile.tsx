@@ -67,6 +67,7 @@ import {
   Briefcase,
   GraduationCap,
   Building2,
+  AlertCircle,
 } from "lucide-react";
 import { EnhancedCountrySelect } from "@/components/ui/enhanced-country-select";
 import { EnhancedPhoneInput } from "@/components/ui/enhanced-phone-input";
@@ -77,6 +78,8 @@ import {
   getCurrentUser,
 } from "@/lib/api-user-profile";
 import { EmployerProfileEnhanced } from "./employer-profile-enhanced";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const LANGUAGES = [
   "English",
@@ -202,10 +205,10 @@ interface ChangePasswordData {
 }
 
 export function CompanyProfile() {
-  return <EmployerProfileEnhanced />;
   const { user, refetch } = useCurrentUser();
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [showPasswordCurrent, setShowPasswordCurrent] = useState(false);
@@ -213,33 +216,35 @@ export function CompanyProfile() {
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-
-  // Form states
   const [editData, setEditData] = useState<UpdateProfileData>({});
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordData, setPasswordData] = useState<ChangePasswordData>({
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
-
-  useEffect(() => {
-    if (user?.role === "EMPLOYER") {
-      loadProfile();
-    }
-  }, [user]);
+  const [passwordErrors, setPasswordErrors] = useState<
+    Partial<ChangePasswordData>
+  >({});
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
   const loadProfile = async () => {
     try {
-      setIsLoading(true);
-      const profileData = await getCurrentUser();
-      setProfile(profileData.data);
-    } catch (error) {
-      toast.error("Failed to load profile");
-      console.error("Error loading profile:", error);
+      setLoading(true);
+      const data = await getCurrentUser();
+      setProfile(data.data);
+    } catch (err) {
+      setError("Failed to load profile");
+      console.error("Error loading profile:", err);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadProfile();
+  }, []);
 
   const handleEditProfile = () => {
     if (!profile) return;
@@ -269,7 +274,7 @@ export function CompanyProfile() {
 
   const handleSaveProfile = async () => {
     try {
-      setIsLoading(true);
+      setLoading(true);
       const updatedProfile = await updateUserProfile(editData);
       setProfile(updatedProfile.data);
       setIsEditing(false);
@@ -279,7 +284,7 @@ export function CompanyProfile() {
     } catch (error: any) {
       toast.error(error.message || "Failed to update profile");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
@@ -300,7 +305,7 @@ export function CompanyProfile() {
     }
 
     try {
-      setIsLoading(true);
+      setLoading(true);
       await changePassword(passwordData);
       setShowPasswordDialog(false);
       setPasswordData({
@@ -312,7 +317,7 @@ export function CompanyProfile() {
     } catch (error: any) {
       toast.error(error.message || "Failed to change password");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
@@ -384,13 +389,24 @@ export function CompanyProfile() {
     );
   }
 
-  if (isLoading && !profile) {
+  if (loading && !profile) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex items-center gap-2">
           <Loader2 className="h-6 w-6 animate-spin" />
           <p>Loading profile...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -428,12 +444,12 @@ export function CompanyProfile() {
               <Button
                 variant="outline"
                 onClick={handleCancelEdit}
-                disabled={isLoading}
+                disabled={loading}
               >
                 Cancel
               </Button>
-              <Button onClick={handleSaveProfile} disabled={isLoading}>
-                {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              <Button onClick={handleSaveProfile} disabled={loading}>
+                {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 <Save className="w-4 h-4 mr-2" />
                 Save Changes
               </Button>
@@ -586,7 +602,7 @@ export function CompanyProfile() {
                         value={
                           isEditing
                             ? editData.firstName || ""
-                            : profile.firstName
+                            : profile?.firstName || ""
                         }
                         onChange={(e) =>
                           setEditData((prev) => ({
@@ -676,7 +692,7 @@ export function CompanyProfile() {
                       <Label htmlFor="gender">Gender</Label>
                       {isEditing ? (
                         <Select
-                          value={editData.gender || ""}
+                          value={editData.gender || undefined}
                           onValueChange={(value) =>
                             setEditData((prev) => ({ ...prev, gender: value }))
                           }
@@ -1286,20 +1302,20 @@ export function CompanyProfile() {
                           <Button
                             variant="outline"
                             onClick={() => setShowPasswordDialog(false)}
-                            disabled={isLoading}
+                            disabled={loading}
                           >
                             Cancel
                           </Button>
                           <Button
                             onClick={handleChangePassword}
                             disabled={
-                              isLoading ||
+                              loading ||
                               !passwordData.currentPassword ||
                               !passwordData.newPassword ||
                               !passwordData.confirmPassword
                             }
                           >
-                            {isLoading && (
+                            {loading && (
                               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                             )}
                             Change Password

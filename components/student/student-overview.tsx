@@ -33,8 +33,11 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
+import { useAuth } from "@/contexts/auth-context";
 
 export function StudentOverview() {
+  const { user } = useAuth();
+
   const quickStats = [
     {
       label: "Applications Sent",
@@ -137,7 +140,9 @@ export function StudentOverview() {
       {/* Welcome Section */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-600 to-blue-600 p-8 text-white">
         <div className="relative z-10">
-          <h1 className="text-3xl font-bold mb-2">Welcome back, Alex! 🎯</h1>
+          <h1 className="text-3xl font-bold mb-2">
+            Welcome back, {user?.firstName}
+          </h1>
           <p className="text-lg opacity-90 mb-6">
             You have 3 new job matches and 2 upcoming events. Let's accelerate
             your career journey!

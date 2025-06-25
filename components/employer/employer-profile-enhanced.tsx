@@ -466,7 +466,7 @@ export function EmployerProfileEnhanced() {
                   <div className="space-y-2">
                     <Label htmlFor="new-type">Company Type</Label>
                     <Select
-                      value={newCompanyData.type || ""}
+                      value={newCompanyData.type || undefined}
                       onValueChange={(value) =>
                         setNewCompanyData((prev) => ({ ...prev, type: value }))
                       }
@@ -829,7 +829,7 @@ export function EmployerProfileEnhanced() {
                               <Label htmlFor="industry">Industry</Label>
                               {isEditing ? (
                                 <Select
-                                  value={editData.industry || ""}
+                                  value={editData.industry || undefined}
                                   onValueChange={(value) =>
                                     setEditData((prev) => ({
                                       ...prev,
@@ -864,7 +864,7 @@ export function EmployerProfileEnhanced() {
                               <Label htmlFor="company-size">Company Size</Label>
                               {isEditing ? (
                                 <Select
-                                  value={editData.size || ""}
+                                  value={editData.size || undefined}
                                   onValueChange={(value) =>
                                     setEditData((prev) => ({
                                       ...prev,

@@ -1,533 +1,445 @@
 import { useState, useEffect, useCallback } from "react";
-import { getToken } from "@/lib/auth-utils";
+import { toast } from "sonner";
+import {
+  searchJobs,
+  getAIRecommendations,
+  saveJob,
+  unsaveJob,
+  applyToJob,
+  getMyApplications,
+  getSavedJobs,
+  getJobStats,
+  JobSearchFilters,
+  UserPreferences,
+} from "@/lib/api";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
-
-interface Job {
+interface JobListing {
   id: string;
   title: string;
+  company: string;
+  location: string;
+  type: string;
+  workSchedule: string;
+  salary: string;
+  posted: string;
+  deadline: string;
+  match: number;
   description: string;
   requirements: string[];
-  type: string;
-  location: string;
-  salary: {
-    min?: number;
-    max?: number;
-    currency?: string;
-    period?: string;
+  benefits: string[];
+  applicants: number;
+  saved: boolean;
+  applied: boolean;
+  companyLogo?: string;
+  industry: string;
+  experience: string;
+  remote: boolean;
+  aiRecommendation?: {
+    reasons: string[];
+    skillsMatch: number;
+    experienceMatch: number;
+    locationMatch: number;
+    insights: string;
   };
-  applicationDeadline: string;
-  status: "ACTIVE" | "CLOSED";
-  createdAt: string;
-  updatedAt: string;
-  company: {
-    id: string;
-    name: string;
-    logo?: string;
-    industry: string;
-    size: string;
-    isVerified?: boolean;
-  };
-  postedBy?: {
-    id: string;
-    firstName: string;
-    lastName: string;
-  };
-  _count: {
-    applications: number;
-  };
-  hasApplied?: boolean;
-  applicationStatus?: string;
 }
 
 interface JobStats {
-  overview: {
-    totalJobs: number;
-    activeJobs: number;
-    totalApplications: number;
-    recentApplications: number;
-    averageApplicationsPerJob: number;
+  totalApplications: number;
+  pendingApplications: number;
+  acceptedApplications: number;
+  rejectedApplications: number;
+  savedJobs: number;
+  interviewInvites: number;
+  responseRate: number;
+  recentApplications: number;
+}
+
+interface AIInsights {
+  personalizedRecommendations: JobListing[];
+  skillGaps: string[];
+  marketTrends: {
+    demandScore: number;
+    salaryTrends: string;
+    growthProjection: string;
   };
-  trends: Array<{
-    date: string;
-    applications: number;
-  }>;
-  topJobs: Array<{
-    id: string;
-    title: string;
-    applications: number;
-    status: string;
-  }>;
-  period: string;
-}
-
-interface CreateJobData {
-  title: string;
-  description: string;
-  requirements: string[];
-  type: string;
-  location: string;
-  salary: {
-    min?: number;
-    max?: number;
-    currency?: string;
-    period?: string;
+  learningRecommendations: {
+    courses: string[];
+    certifications: string[];
+    skills: string[];
   };
-  applicationDeadline: string;
-  status?: "ACTIVE" | "CLOSED";
-}
-
-interface JobQuery {
-  search?: string;
-  location?: string;
-  type?: string;
-  company?: string;
-  status?: "ACTIVE" | "CLOSED";
-  page?: number;
-  limit?: number;
-}
-
-interface PaginatedResponse<T> {
-  data: T[];
-  pagination: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
+  careerPath: {
+    nextRoles: string[];
+    timeToNext: string;
+    recommendations: string[];
   };
 }
 
-export function useJobs() {
+export const useJobs = (initialFilters?: JobSearchFilters) => {
+  const [jobs, setJobs] = useState<JobListing[]>([]);
+  const [filteredJobs, setFilteredJobs] = useState<JobListing[]>([]);
+  const [savedJobs, setSavedJobs] = useState<JobListing[]>([]);
+  const [applications, setApplications] = useState<any[]>([]);
+  const [jobStats, setJobStats] = useState<JobStats>({
+    totalApplications: 0,
+    pendingApplications: 0,
+    acceptedApplications: 0,
+    rejectedApplications: 0,
+    savedJobs: 0,
+    interviewInvites: 0,
+    responseRate: 0,
+    recentApplications: 0,
+  });
+  const [aiInsights, setAIInsights] = useState<AIInsights | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+  const [loadingStats, setLoadingStats] = useState(false);
+  const [loadingApplications, setLoadingApplications] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filters, setFilters] = useState<JobSearchFilters>(
+    initialFilters || {
+      search: "",
+      location: "",
+      jobType: [],
+      experience: [],
+      salary: { min: 0, max: 200000 },
+      skills: [],
+      company: [],
+      industry: [],
+      remoteOnly: false,
+      deadline: "",
+      companySize: [],
+      benefits: [],
+      workSchedule: [],
+      page: 1,
+      limit: 20,
+    }
+  );
   const [error, setError] = useState<string | null>(null);
 
-  const makeRequest = useCallback(
-    async (url: string, options: RequestInit = {}) => {
-      const token = getToken();
-      if (!token) {
-        throw new Error("Authentication required");
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  const transformJobData = useCallback((apiJob: any): JobListing => {
+    const getCompanyName = (company: any): string => {
+      if (typeof company === "string") return company;
+      return company?.name || "Unknown Company";
+    };
+
+    const formatSalary = (salary: any): string => {
+      if (typeof salary === "string") return salary;
+      if (salary?.min && salary?.max) {
+        return `$${salary.min.toLocaleString()} - $${salary.max.toLocaleString()}`;
       }
+      return "Salary not specified";
+    };
 
-      const response = await fetch(`${API_BASE_URL}${url}`, {
-        ...options,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-          ...options.headers,
-        },
-      });
+    return {
+      id: apiJob.id,
+      title: apiJob.title,
+      company: getCompanyName(apiJob.company),
+      location: apiJob.location || "Remote",
+      type: apiJob.type || "Full-time",
+      workSchedule: apiJob.workSchedule || "Standard",
+      salary: formatSalary(apiJob.salary),
+      posted: apiJob.createdAt || new Date().toISOString(),
+      deadline: apiJob.applicationDeadline || "",
+      match: apiJob.match || 0,
+      description: apiJob.description || "",
+      requirements: apiJob.requirements || [],
+      benefits: apiJob.benefits || [],
+      applicants: apiJob._count?.applications || 0,
+      saved: apiJob.saved || false,
+      applied: apiJob.hasApplied || false,
+      companyLogo: apiJob.company?.logo,
+      industry: apiJob.company?.industry || "Technology",
+      experience: apiJob.experience || "Entry Level",
+      remote: apiJob.remote || false,
+      aiRecommendation: apiJob.aiRecommendation,
+    };
+  }, []);
 
-      if (!response.ok) {
-        const errorData = await response
-          .json()
-          .catch(() => ({ message: "Unknown error" }));
-        throw new Error(
-          errorData.message || `HTTP error! status: ${response.status}`
+  const fetchJobs = useCallback(
+    async (newFilters?: JobSearchFilters, resetPage = false) => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const currentFilters = newFilters || filters;
+        const currentPage = resetPage ? 1 : page;
+
+        const response = await searchJobs({
+          ...currentFilters,
+          page: currentPage,
+          limit: 20,
+        });
+
+        const transformedJobs = response.data.map(transformJobData);
+
+        if (resetPage) {
+          setJobs(transformedJobs);
+          setPage(1);
+        } else {
+          setJobs((prev) => [...prev, ...transformedJobs]);
+        }
+
+        setHasMore(response.pagination.page < response.pagination.totalPages);
+        setPage(currentPage + 1);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to fetch jobs";
+        setError(errorMessage);
+        toast.error(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [filters, page, transformJobData]
+  );
+
+  const fetchAIRecommendations = useCallback(
+    async (preferences?: UserPreferences) => {
+      try {
+        setLoadingRecommendations(true);
+        setError(null);
+
+        const response = await getAIRecommendations(
+          20,
+          true,
+          filters,
+          preferences
         );
-      }
+        const transformedJobs = response.data.map(transformJobData);
 
-      return response.json();
+        setAIInsights({
+          personalizedRecommendations: transformedJobs,
+          skillGaps: response.skillGaps || [],
+          marketTrends: response.marketTrends || {
+            demandScore: 0,
+            salaryTrends: "",
+            growthProjection: "",
+          },
+          learningRecommendations: response.learningRecommendations || {
+            courses: [],
+            certifications: [],
+            skills: [],
+          },
+          careerPath: response.careerPath || {
+            nextRoles: [],
+            timeToNext: "",
+            recommendations: [],
+          },
+        });
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "Failed to fetch AI recommendations";
+        setError(errorMessage);
+        toast.error(errorMessage);
+      } finally {
+        setLoadingRecommendations(false);
+      }
+    },
+    [filters, transformJobData]
+  );
+
+  const fetchJobStats = useCallback(async () => {
+    try {
+      setLoadingStats(true);
+      setError(null);
+
+      const response = await getJobStats();
+      setJobStats(response.data);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to fetch job statistics";
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setLoadingStats(false);
+    }
+  }, []);
+
+  const fetchApplications = useCallback(async () => {
+    try {
+      setLoadingApplications(true);
+      setError(null);
+
+      const response = await getMyApplications();
+      setApplications(response.data);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to fetch applications";
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setLoadingApplications(false);
+    }
+  }, []);
+
+  const fetchSavedJobs = useCallback(async () => {
+    try {
+      setError(null);
+
+      const response = await getSavedJobs();
+      const transformedJobs = response.data.map(transformJobData);
+      setSavedJobs(transformedJobs);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to fetch saved jobs";
+      setError(errorMessage);
+      toast.error(errorMessage);
+    }
+  }, [transformJobData]);
+
+  const handleSaveJob = useCallback(async (jobId: string) => {
+    try {
+      await saveJob(jobId);
+
+      setJobs((prev) =>
+        prev.map((job) => (job.id === jobId ? { ...job, saved: true } : job))
+      );
+
+      setFilteredJobs((prev) =>
+        prev.map((job) => (job.id === jobId ? { ...job, saved: true } : job))
+      );
+
+      setJobStats((prev) => ({ ...prev, savedJobs: prev.savedJobs + 1 }));
+
+      toast.success("Job saved successfully!");
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to save job";
+      setError(errorMessage);
+      toast.error(errorMessage);
+    }
+  }, []);
+
+  const handleUnsaveJob = useCallback(async (jobId: string) => {
+    try {
+      await unsaveJob(jobId);
+
+      setJobs((prev) =>
+        prev.map((job) => (job.id === jobId ? { ...job, saved: false } : job))
+      );
+
+      setFilteredJobs((prev) =>
+        prev.map((job) => (job.id === jobId ? { ...job, saved: false } : job))
+      );
+
+      setSavedJobs((prev) => prev.filter((job) => job.id !== jobId));
+
+      setJobStats((prev) => ({
+        ...prev,
+        savedJobs: Math.max(0, prev.savedJobs - 1),
+      }));
+
+      toast.success("Job removed from saved list.");
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to unsave job";
+      setError(errorMessage);
+      toast.error(errorMessage);
+    }
+  }, []);
+
+  const handleApplyJob = useCallback(
+    async (jobId: string, applicationData?: any) => {
+      try {
+        await applyToJob(jobId, applicationData || {});
+
+        setJobs((prev) =>
+          prev.map((job) =>
+            job.id === jobId ? { ...job, applied: true } : job
+          )
+        );
+
+        setFilteredJobs((prev) =>
+          prev.map((job) =>
+            job.id === jobId ? { ...job, applied: true } : job
+          )
+        );
+
+        setJobStats((prev) => ({
+          ...prev,
+          totalApplications: prev.totalApplications + 1,
+          pendingApplications: prev.pendingApplications + 1,
+        }));
+
+        toast.success("Application submitted successfully!");
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to apply to job";
+        setError(errorMessage);
+        toast.error(errorMessage);
+      }
     },
     []
   );
 
-  // ============= EMPLOYER OPERATIONS =============
+  const loadMore = useCallback(async () => {
+    if (!hasMore || loading) return;
+    await fetchJobs(filters, false);
+  }, [fetchJobs, filters, hasMore, loading]);
 
-  const createJob = useCallback(
-    async (jobData: CreateJobData): Promise<Job> => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await makeRequest("/jobs", {
-          method: "POST",
-          body: JSON.stringify(jobData),
-        });
-        return response.data;
-      } catch (err: any) {
-        setError(err.message);
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [makeRequest]
-  );
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredJobs(jobs);
+      return;
+    }
 
-  const getMyJobs = useCallback(
-    async (query: JobQuery = {}): Promise<PaginatedResponse<Job>> => {
-      try {
-        setLoading(true);
-        setError(null);
-        const searchParams = new URLSearchParams();
-        Object.entries(query).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            searchParams.append(key, value.toString());
-          }
-        });
+    const searchLower = searchQuery.toLowerCase();
+    const filtered = jobs.filter(
+      (job) =>
+        job.title.toLowerCase().includes(searchLower) ||
+        job.company.toLowerCase().includes(searchLower) ||
+        job.description.toLowerCase().includes(searchLower) ||
+        job.industry.toLowerCase().includes(searchLower) ||
+        job.location.toLowerCase().includes(searchLower) ||
+        job.requirements.some((req) => req.toLowerCase().includes(searchLower))
+    );
 
-        const response = await makeRequest(`/jobs/my-jobs?${searchParams}`);
-        return {
-          data: response.data,
-          pagination: response.pagination,
-        };
-      } catch (err: any) {
-        setError(err.message);
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [makeRequest]
-  );
+    setFilteredJobs(filtered);
+  }, [jobs, searchQuery]);
 
-  const getMyJobStats = useCallback(
-    async (period: string = "30d"): Promise<JobStats> => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await makeRequest(
-          `/jobs/my-jobs/stats?period=${period}`
-        );
-        return response.data;
-      } catch (err: any) {
-        setError(err.message);
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [makeRequest]
-  );
-
-  const updateJob = useCallback(
-    async (jobId: string, updateData: Partial<CreateJobData>): Promise<Job> => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await makeRequest(`/jobs/${jobId}`, {
-          method: "PUT",
-          body: JSON.stringify(updateData),
-        });
-        return response.data;
-      } catch (err: any) {
-        setError(err.message);
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [makeRequest]
-  );
-
-  const updateJobStatus = useCallback(
-    async (jobId: string, status: "ACTIVE" | "CLOSED"): Promise<Job> => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await makeRequest(`/jobs/${jobId}/status`, {
-          method: "PATCH",
-          body: JSON.stringify({ status }),
-        });
-        return response.data;
-      } catch (err: any) {
-        setError(err.message);
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [makeRequest]
-  );
-
-  const deleteJob = useCallback(
-    async (jobId: string): Promise<void> => {
-      try {
-        setLoading(true);
-        setError(null);
-        await makeRequest(`/jobs/${jobId}`, {
-          method: "DELETE",
-        });
-      } catch (err: any) {
-        setError(err.message);
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [makeRequest]
-  );
-
-  // ============= PUBLIC OPERATIONS =============
-
-  const getAllJobs = useCallback(
-    async (query: JobQuery = {}): Promise<PaginatedResponse<Job>> => {
-      try {
-        setLoading(true);
-        setError(null);
-        const searchParams = new URLSearchParams();
-        Object.entries(query).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            searchParams.append(key, value.toString());
-          }
-        });
-
-        const response = await makeRequest(`/jobs?${searchParams}`);
-        return {
-          data: response.data,
-          pagination: response.pagination,
-        };
-      } catch (err: any) {
-        setError(err.message);
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [makeRequest]
-  );
-
-  const getJobById = useCallback(
-    async (jobId: string): Promise<Job> => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await makeRequest(`/jobs/${jobId}`);
-        return response.data;
-      } catch (err: any) {
-        setError(err.message);
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [makeRequest]
-  );
-
-  const applyToJob = useCallback(
-    async (
-      jobId: string,
-      applicationData: { resumeUrl: string; coverLetter?: string }
-    ) => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await makeRequest(`/jobs/${jobId}/apply`, {
-          method: "POST",
-          body: JSON.stringify(applicationData),
-        });
-        return response.data;
-      } catch (err: any) {
-        setError(err.message);
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [makeRequest]
-  );
-
-  const getJobApplications = useCallback(
-    async (jobId: string, query: any = {}) => {
-      try {
-        setLoading(true);
-        setError(null);
-        const searchParams = new URLSearchParams();
-        Object.entries(query).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            searchParams.append(key, value.toString());
-          }
-        });
-
-        const response = await makeRequest(
-          `/jobs/${jobId}/applications?${searchParams}`
-        );
-        return {
-          data: response.data,
-          pagination: response.pagination,
-        };
-      } catch (err: any) {
-        setError(err.message);
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [makeRequest]
-  );
-
-  const getJobStats = useCallback(
-    async (jobId: string) => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await makeRequest(`/jobs/${jobId}/stats`);
-        return response.data;
-      } catch (err: any) {
-        setError(err.message);
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [makeRequest]
-  );
-
-  // ============= APPLICATION MANAGEMENT =============
-
-  const updateApplicationStatus = useCallback(
-    async (
-      jobId: string,
-      applicationId: string,
-      status: string,
-      message?: string
-    ) => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await makeRequest(
-          `/jobs/${jobId}/applications/${applicationId}/status`,
-          {
-            method: "PATCH",
-            body: JSON.stringify({ status, message }),
-          }
-        );
-        return response.data;
-      } catch (err: any) {
-        setError(err.message);
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [makeRequest]
-  );
-
-  const shortlistCandidate = useCallback(
-    async (jobId: string, applicationId: string) => {
-      return updateApplicationStatus(jobId, applicationId, "SHORTLISTED");
-    },
-    [updateApplicationStatus]
-  );
-
-  const moveToNextStage = useCallback(
-    async (jobId: string, applicationId: string, currentStatus: string) => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Define the status progression
-        const statusProgression: { [key: string]: string } = {
-          PENDING: "REVIEWED",
-          REVIEWED: "SHORTLISTED",
-          SHORTLISTED: "INTERVIEWED",
-          INTERVIEWED: "ACCEPTED",
-        };
-
-        const nextStatus = statusProgression[currentStatus];
-        if (!nextStatus) {
-          throw new Error("Cannot move to next stage from current status");
-        }
-
-        const response = await makeRequest(
-          `/jobs/${jobId}/applications/${applicationId}/status`,
-          {
-            method: "PATCH",
-            body: JSON.stringify({
-              status: nextStatus,
-              message: `Application moved to ${nextStatus.toLowerCase()} stage`,
-            }),
-          }
-        );
-        return response.data;
-      } catch (err: any) {
-        setError(err.message);
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [makeRequest]
-  );
-
-  const rejectApplication = useCallback(
-    async (jobId: string, applicationId: string, reason?: string) => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await makeRequest(
-          `/jobs/${jobId}/applications/${applicationId}/reject`,
-          {
-            method: "POST",
-            body: JSON.stringify({ reason }),
-          }
-        );
-        return response.data;
-      } catch (err: any) {
-        setError(err.message);
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [makeRequest]
-  );
-
-  const scheduleInterview = useCallback(
-    async (
-      jobId: string,
-      applicationId: string,
-      interviewData: {
-        scheduledDate: string;
-        scheduledTime: string;
-        interviewType: "PHONE" | "VIDEO" | "IN_PERSON";
-        location?: string;
-        meetingLink?: string;
-        notes?: string;
-      }
-    ) => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await makeRequest(
-          `/jobs/${jobId}/applications/${applicationId}/schedule-interview`,
-          {
-            method: "POST",
-            body: JSON.stringify(interviewData),
-          }
-        );
-        return response.data;
-      } catch (err: any) {
-        setError(err.message);
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [makeRequest]
-  );
+  useEffect(() => {
+    fetchJobs(filters, true);
+    fetchJobStats();
+    fetchApplications();
+    fetchSavedJobs();
+    fetchAIRecommendations();
+  }, []);
 
   return {
+    jobs,
+    filteredJobs,
+    savedJobs,
+    applications,
+    jobStats,
+    aiInsights,
     loading,
+    loadingRecommendations,
+    loadingStats,
+    loadingApplications,
+    page,
+    hasMore,
+    fetchJobs,
+    fetchAIRecommendations,
+    fetchJobStats,
+    fetchApplications,
+    fetchSavedJobs,
+    handleSaveJob,
+    handleUnsaveJob,
+    handleApplyJob,
+    loadMore,
+    searchQuery,
+    setSearchQuery,
+    filters,
+    setFilters,
     error,
-    // Employer operations
-    createJob,
-    getMyJobs,
-    getMyJobStats,
-    updateJob,
-    updateJobStatus,
-    deleteJob,
-    // Public operations
-    getAllJobs,
-    getJobById,
-    applyToJob,
-    getJobApplications,
-    getJobStats,
-    // Application management
-    updateApplicationStatus,
-    shortlistCandidate,
-    moveToNextStage,
-    rejectApplication,
-    scheduleInterview,
+    clearError,
   };
-}
+};

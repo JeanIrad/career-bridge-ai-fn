@@ -21,8 +21,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
-import { useJobs } from "@/hooks/use-jobs";
 import { toast } from "sonner";
+import { getToken } from "@/lib/auth-utils";
 
 interface EditJobDialogProps {
   open: boolean;
@@ -37,7 +37,6 @@ export function EditJobDialog({
   job,
   onSuccess,
 }: EditJobDialogProps) {
-  const { updateJob } = useJobs();
   const [loading, setLoading] = useState(false);
   const [editJobForm, setEditJobForm] = useState({
     title: job.title || "",
@@ -55,6 +54,27 @@ export function EditJobDialog({
       ? new Date(job.applicationDeadline).toISOString().split("T")[0]
       : "",
   });
+
+  const updateJob = async (jobId: string, jobData: any) => {
+    const token = getToken();
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"}/jobs/${jobId}`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(jobData),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to update job");
+    }
+
+    return response.json();
+  };
 
   const handleUpdateJob = async () => {
     try {

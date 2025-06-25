@@ -629,16 +629,21 @@ export function AdminContentModeration() {
                   <div className="space-y-2">
                     <Label>Status</Label>
                     <Select
-                      value={filters.status || ""}
+                      value={filters.status || "all"}
                       onValueChange={(value) =>
-                        updateFilters({ status: value as ModerationStatus })
+                        updateFilters({
+                          status:
+                            value === "all"
+                              ? undefined
+                              : (value as ModerationStatus),
+                        })
                       }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="All statuses" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All statuses</SelectItem>
+                        <SelectItem value="all">All statuses</SelectItem>
                         {Object.values(ModerationStatus).map((status) => (
                           <SelectItem key={status} value={status}>
                             {status.replace(/_/g, " ")}
@@ -652,16 +657,21 @@ export function AdminContentModeration() {
                   <div className="space-y-2">
                     <Label>Content Type</Label>
                     <Select
-                      value={filters.contentType || ""}
+                      value={filters.contentType || "all"}
                       onValueChange={(value) =>
-                        updateFilters({ contentType: value as ContentType })
+                        updateFilters({
+                          contentType:
+                            value === "all"
+                              ? undefined
+                              : (value as ContentType),
+                        })
                       }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="All types" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All types</SelectItem>
+                        <SelectItem value="all">All types</SelectItem>
                         {Object.values(ContentType).map((type) => (
                           <SelectItem key={type} value={type}>
                             {getContentTypeLabel(type)}
@@ -675,16 +685,21 @@ export function AdminContentModeration() {
                   <div className="space-y-2">
                     <Label>Severity</Label>
                     <Select
-                      value={filters.severity || ""}
+                      value={filters.severity || "all"}
                       onValueChange={(value) =>
-                        updateFilters({ severity: value as SeverityLevel })
+                        updateFilters({
+                          severity:
+                            value === "all"
+                              ? undefined
+                              : (value as SeverityLevel),
+                        })
                       }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="All severities" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All severities</SelectItem>
+                        <SelectItem value="all">All severities</SelectItem>
                         {Object.values(SeverityLevel).map((severity) => (
                           <SelectItem key={severity} value={severity}>
                             {severity}
